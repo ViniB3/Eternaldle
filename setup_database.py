@@ -1,10 +1,14 @@
 import sqlite3
 import os
 
-DB_FILE = "eternaldle.db"
+# SOLUÇÃO FINAL: Usar o diretório de dados persistente do Render.
+# Se a variável de ambiente RENDER não estiver definida (desenvolvimento local), usa o diretório atual.
+project_root = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.environ.get('RENDER_DATA_DIR', project_root)
+DATABASE_FILE = os.path.join(data_dir, 'eternaldle.db')
 
-# Dados dos personagens atualizados a partir do ficheiro EternaldleSQL.sql
-characters_data = [
+# Lista completa de personagens
+characters = [
     ('Abigail','Mulher','Lutador','Corpo-a-corpo','Cinza','2023',1,'https://i.imgur.com/guAblq7.jpeg'),
     ('Adela','Mulher','Mago,Suporte','Longo alcance','Preto','2021',2,'https://i.imgur.com/wZt2Icr.jpeg'),
     ('Adina','Mulher','Mago','Longo alcance','Cinza','2022',1,'https://i.imgur.com/Hk3GB6X.jpeg'),
@@ -13,7 +17,7 @@ characters_data = [
     ('Alex','Homem','Lutador','Corpo-a-corpo,Longo alcance','Loiro','2021',4,'https://i.imgur.com/ZVLeiTg.jpeg'),
     ('Alonso','Homem','Tank','Corpo-a-corpo','Loiro','2023',1,'https://i.imgur.com/w00JlL3.jpeg'),
     ('Arda','Homem','Mago,Suporte','Longo alcance','Loiro','2023',1,'https://i.imgur.com/4Q4d21g.jpeg'),
-    ('Aya','Mulher','Mago,Carregador','Longo alcance','Castanho','2019',3,'https://i.imgur.com/O1dF1n6.jpeg'), # Link Corrigido
+    ('Aya','Mulher','Mago,Carregador','Longo alcance','Castanho','2019',3,'https://i.imgur.com/4Q4d21g.jpeg'), # URL corrigido
     ('Barbara','Mulher','Mago','Corpo-a-corpo','Castanho','2021',1,'https://i.imgur.com/qqzCI8Z.jpeg'),
     ('Bernice','Homem','Carregador','Longo alcance','Loiro','2021',1,'https://i.imgur.com/YSUQsWA.jpeg'),
     ('Bianca','Mulher','Mago','Longo alcance','Azul','2021',1,'https://i.imgur.com/HF2dTni.png'),
@@ -89,46 +93,40 @@ characters_data = [
     ('Zahir','Homem','Mago','Longo alcance','Castanho','2019',2,'https://i.imgur.com/j3Kh7O3.png')
 ]
 
-def create_database():
-    """Cria e preenche a base de dados SQLite se ela não existir."""
-    if os.path.exists(DB_FILE):
-        print(f"O ficheiro da base de dados '{DB_FILE}' já existe. A apagar o ficheiro antigo.")
-        os.remove(DB_FILE)
+def create_and_populate_db():
+    # Remove a base de dados antiga, se existir, para garantir que começamos do zero
+    if os.path.exists(DATABASE_FILE):
+        os.remove(DATABASE_FILE)
 
-    try:
-        # Conecta-se à base de dados (cria o ficheiro se não existir)
-        conn = sqlite3.connect(DB_FILE)
-        cursor = conn.cursor()
+    # Conecta-se à base de dados (irá criar o ficheiro se não existir)
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
 
-        # Cria a tabela
-        cursor.execute('''
-        CREATE TABLE eternaldle (
-            NOME TEXT PRIMARY KEY,
-            GENERO TEXT,
-            CLASSE TEXT,
-            ALCANCE TEXT,
-            COR_CABELO TEXT,
-            ANO_DE_LANCAMENTO TEXT,
-            QUANTIDADE_DE_ARMA INTEGER,
-            IMAGEM_URL TEXT
-        )
-        ''')
+    # Cria a tabela
+    cursor.execute('''
+    CREATE TABLE eternaldle (
+        NOME TEXT PRIMARY KEY,
+        GENERO TEXT,
+        CLASSE TEXT,
+        ALCANCE TEXT,
+        COR_CABELO TEXT,
+        ANO_DE_LANCAMENTO TEXT,
+        QUANTIDADE_DE_ARMA INTEGER,
+        IMAGEM_URL TEXT
+    )
+    ''')
 
-        # Insere os dados dos personagens
-        cursor.executemany('''
-        INSERT INTO eternaldle (NOME, GENERO, CLASSE, ALCANCE, COR_CABELO, ANO_DE_LANCAMENTO, QUANTIDADE_DE_ARMA, IMAGEM_URL)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ''', characters_data)
+    # Insere os dados dos personagens
+    cursor.executemany('''
+    INSERT INTO eternaldle (NOME, GENERO, CLASSE, ALCANCE, COR_CABELO, ANO_DE_LANCAMENTO, QUANTIDADE_DE_ARMA, IMAGEM_URL)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    ''', characters)
 
-        # Confirma as alterações e fecha a conexão
-        conn.commit()
-        conn.close()
-        
-        print(f"Base de dados '{DB_FILE}' criada e preenchida com sucesso!")
+    # Confirma as alterações e fecha a conexão
+    conn.commit()
+    conn.close()
 
-    except sqlite3.Error as e:
-        print(f"Ocorreu um erro na base de dados SQLite: {e}")
+    print(f"Base de dados '{DATABASE_FILE}' criada e preenchida com sucesso!")
 
 if __name__ == '__main__':
-    create_database()
-
+    create_and_populate_db()
