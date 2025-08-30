@@ -13,9 +13,10 @@
             --header-bg: #1a1a1b;
 
             /* Status Colors */
-            --incorrect-bg: #902020;
+            --incorrect-bg: #3a3a3c;
             --partial-bg: #b59f3b;
             --correct-bg: #538d4e;
+            --error-bg: #d9534f;
         }
 
         html, body {
@@ -97,6 +98,7 @@
             padding: 12px 8px;
             border: 1px solid var(--border-color);
             min-width: 110px;
+            vertical-align: middle;
         }
 
         #results-table th {
@@ -109,11 +111,24 @@
             background-color: var(--incorrect-bg);
             font-weight: bold;
             font-size: 1.1rem;
-            height: 60px;
+            height: 70px;
         }
         .result-row .correct { background-color: var(--correct-bg); }
         .result-row .partial { background-color: var(--partial-bg); }
         
+        .image-cell {
+            padding: 5px !important;
+        }
+        .character-image {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            display: block;
+            margin: 0 auto;
+            border: 2px solid var(--border-color);
+        }
+
         .numeric-cell {
             display: flex;
             align-items: center;
@@ -142,6 +157,10 @@
             opacity: 0;
             transition: opacity 0.5s;
         }
+        .toast.error {
+            background-color: var(--error-bg);
+            color: white;
+        }
         .toast.show { opacity: 1; }
 
     </style>
@@ -150,7 +169,6 @@
     <div class="container">
         <header>
             <h1>Adivinhe o Personagem</h1>
-            <!-- Elemento para exibir a solução para fins de teste -->
             <p id="debug-solution" style="color: #ffcc00; font-size: 0.9rem; min-height: 1.2rem;"></p>
         </header>
 
@@ -164,6 +182,7 @@
             <table id="results-table">
                 <thead>
                     <tr>
+                        <th></th>
                         <th>Personagem</th>
                         <th>Gênero</th>
                         <th>Classe(s)</th>
@@ -174,7 +193,6 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <!-- Resultados dos palpites serão adicionados aqui -->
                 </tbody>
             </table>
         </div>
@@ -195,18 +213,24 @@
 
         async function initializeGame() {
             try {
-                // MODIFICADO: Adicionado { credentials: 'include' } para enviar cookies de sessão
                 const response = await fetch(`${API_BASE_URL}/api/start_game`, { credentials: 'include' });
-                if (!response.ok) throw new Error('Falha ao iniciar o jogo no servidor.');
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Falha ao iniciar o jogo no servidor.');
+                };
                 
                 const data = await response.json();
                 characterNames = data.characterNames.map(name => name.trim());
                 
                 characterDatalist.innerHTML = characterNames.map(name => `<option value="${name}"></option>`).join('');
 
+                if (data.solutionForTesting) {
+                    document.getElementById('debug-solution').textContent = `(Para Teste) Solução: ${data.solutionForTesting}`;
+                }
+
             } catch (error) {
                 console.error("Erro de Inicialização:", error);
-                showToast("Erro ao conectar com o servidor. O backend está a correr?", 5000);
+                showToast(error.message, 5000, true);
                 guessButton.disabled = true;
             }
         }
@@ -221,12 +245,11 @@
             if (isGameOver || !guess) return;
 
             if (!characterNames.some(name => name.toLowerCase() === guess.toLowerCase())) {
-                showToast("Nome de personagem inválido");
+                showToast("Nome de personagem inválido", 2000, true);
                 return;
             }
 
             try {
-                // MODIFICADO: Adicionado { credentials: 'include' } para enviar cookies de sessão
                 const response = await fetch(`${API_BASE_URL}/api/guess`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -240,6 +263,7 @@
                 }
                 
                 const data = await response.json();
+                console.log("Resposta recebida do servidor:", data);
                 displayGuessResult(data.results);
 
                 if (data.isCorrect) {
@@ -253,7 +277,7 @@
 
             } catch(error) {
                 console.error("Erro no Palpite:", error);
-                showToast(error.message);
+                showToast(error.message, 2000, true);
             }
         }
 
@@ -261,43 +285,70 @@
             const row = document.createElement('tr');
             row.classList.add('result-row');
 
-            const properties = ['nome', 'genero', 'classe', 'alcance', 'cor_cabelo', 'ano_de_lancamento', 'quantidade_de_arma'];
+            const propertiesOrder = ['imagem_url', 'nome', 'genero', 'classe', 'alcance', 'cor_cabelo', 'ano_de_lancamento', 'quantidade_de_arma'];
 
-            properties.forEach(prop => {
+            propertiesOrder.forEach(propKey => {
                 const cell = document.createElement('td');
-                const result = results[prop];
-                
-                if (prop === 'ano_de_lancamento' || prop === 'quantidade_de_arma') {
-                    const numericCell = document.createElement('div');
-                    numericCell.className = 'numeric-cell';
+                const result = results[propKey];
+
+                if (propKey === 'imagem_url') {
+                    cell.classList.add('image-cell');
+                    cell.classList.add(results.nome.status); 
+
+                    const img = document.createElement('img');
                     
-                    const valueSpan = document.createElement('span');
-                    valueSpan.textContent = result.value;
-                    numericCell.appendChild(valueSpan);
+                    img.crossOrigin = 'anonymous';
                     
-                    if (result.status !== 'correct') {
-                        const arrow = document.createElement('span');
-                        arrow.className = 'arrow';
-                        arrow.textContent = result.status === 'higher' ? '⬆' : '⬇';
-                        numericCell.appendChild(arrow);
-                    }
-                    cell.appendChild(numericCell);
+                    // --- ALTERAÇÃO PRINCIPAL ---
+                    // Adiciona uma política de referência para aumentar a compatibilidade com o Imgur.
+                    img.referrerPolicy = 'no-referrer';
+
+                    img.src = result.value;
+                    img.alt = `[Imagem de ${results.nome.value}]`;
+                    img.classList.add('character-image');
+                    
+                    img.onerror = () => {
+                        console.error(`Falha ao carregar a imagem no URL: ${img.src}`);
+                        img.alt = 'Falha ao carregar';
+                    };
+                    
+                    cell.appendChild(img);
+
                 } else {
-                    cell.textContent = String(result.value).replace(/,/g, ', ');
+                    if (propKey === 'ano_de_lancamento' || propKey === 'quantidade_de_arma') {
+                        const numericCell = document.createElement('div');
+                        numericCell.className = 'numeric-cell';
+                        
+                        const valueSpan = document.createElement('span');
+                        valueSpan.textContent = result.value;
+                        numericCell.appendChild(valueSpan);
+                        
+                        if (result.status !== 'correct') {
+                            const arrow = document.createElement('span');
+                            arrow.className = 'arrow';
+                            arrow.textContent = result.status === 'higher' ? '⬆' : '⬇';
+                            numericCell.appendChild(arrow);
+                        }
+                        cell.appendChild(numericCell);
+                    } else {
+                        cell.textContent = String(result.value).replace(/,/g, ', ');
+                    }
+                    cell.classList.add(result.status);
                 }
-                
-                cell.classList.add(result.status);
                 row.appendChild(cell);
             });
             
             resultsTableBody.prepend(row);
         }
-
-        function showToast(message, duration = 2000) {
+        
+        function showToast(message, duration = 2000, isError = false) {
             const toastContainer = document.getElementById('toast-container');
             const toast = document.createElement('div');
             toast.textContent = message;
             toast.classList.add('toast');
+            if (isError) {
+                toast.classList.add('error');
+            }
             toastContainer.appendChild(toast);
             
             setTimeout(() => toast.classList.add('show'), 10);

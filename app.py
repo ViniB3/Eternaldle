@@ -7,15 +7,13 @@ from datetime import timedelta
 app = Flask(__name__)
 
 # --- Configuração ---
-# IMPORTANTE: Certifique-se de que estas credenciais correspondem à sua configuração do MySQL.
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
 app.config['MYSQL_PASSWORD'] = 'root' # Altere para a sua senha do MySQL
 app.config['MYSQL_DB'] = 'eternal'
-app.config['MYSQL_CURSORCLASS'] = 'DictCursor' # Retorna linhas como dicionários
-app.secret_key = 'dificil' # Altere para uma chave segura
+app.config['MYSQL_CURSORCLASS'] = 'DictCursor'
+app.secret_key = 'dificil'
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
-# MODIFICADO: Adicionado para melhorar a compatibilidade de cookies de sessão em navegadores modernos
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 mysql = MySQL(app)
@@ -86,9 +84,6 @@ def compare_numeric(guess_value, solution_value):
 @app.route('/api/guess', methods=['POST'])
 def handle_guess():
     """Lida com o palpite de um utilizador e retorna a comparação detalhada."""
-    # Log de depuração para ver a sessão que o servidor recebe
-    print(f"Sessão recebida no palpite: {session}")
-    
     data = request.get_json()
     guess_name = data.get('guess', '').strip()
     solution_name = session.get('solution_name')
@@ -101,6 +96,11 @@ def handle_guess():
 
     if not guess_char or not solution_char:
         return jsonify({'error': 'Personagem inválido.'}), 404
+        
+    # LOG DE DEPURAÇÃO: Mostra os dados do personagem adivinhado
+    print(f"\n--- DADOS DO PALPITE ('{guess_name}') ---")
+    print(f"Encontrado na memória: {guess_char}")
+    print("---------------------------------")
 
     results = {}
     is_correct = (guess_char['NOME'].lower() == solution_char['NOME'].lower())
@@ -138,13 +138,27 @@ def handle_guess():
     if is_correct:
         results['nome']['status'] = 'correct'
 
-    return jsonify({'results': results, 'isCorrect': is_correct})
+    results['imagem_url'] = {'value': guess_char.get('IMAGEM_URL', '')}
+
+    # LOG DE DEPURAÇÃO: Mostra a resposta final a ser enviada
+    response_data = {'results': results, 'isCorrect': is_correct}
+    print(f"--- RESPOSTA ENVIADA PARA O FRONTEND ---")
+    import json
+    print(json.dumps(response_data, indent=2))
+    print("--------------------------------------")
+
+    return jsonify(response_data)
 
 # --- Inicialização da Aplicação ---
 with app.app_context():
     all_characters = get_all_characters()
     if not all_characters:
         print("AVISO: Nenhum personagem foi carregado do banco de dados.")
+    else:
+        # LOG DE DEPURAÇÃO: Mostra o primeiro personagem carregado para verificar o URL da imagem
+        print("\n--- VERIFICAÇÃO DE DADOS CARREGADOS ---")
+        print(f"Dados do primeiro personagem na memória: {all_characters[0]}")
+        print("---------------------------------------\n")
 
 if __name__ == '__main__':
     app.run(debug=True)
