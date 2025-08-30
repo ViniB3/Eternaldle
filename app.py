@@ -4,10 +4,9 @@ import os
 from flask import Flask, jsonify, session, request, send_from_directory
 from flask_cors import CORS
 
-# Modificação Final: Usar um caminho absoluto para definir a pasta de ficheiros estáticos.
-# Isto garante que o Render consegue sempre encontrar o 'index.html'.
-project_root = os.path.dirname(os.path.abspath(__file__))
-app = Flask(__name__, static_folder=project_root, static_url_path='')
+# Modificação Final e Simplificada: Removemos a configuração complexa do Flask.
+# O caminho para o index.html será determinado de forma direta na própria rota.
+app = Flask(__name__)
 
 
 # Chave secreta para gerir as sessões de utilizador.
@@ -62,12 +61,14 @@ def get_all_characters():
 
 # --- Rotas da Aplicação ---
 
-# Rota para servir o ficheiro index.html (PÁGINA PRINCIPAL)
+# Rota para servir o ficheiro eternaldle.html (PÁGINA PRINCIPAL)
 @app.route('/')
 def serve_index():
     """Serve a página principal do jogo."""
-    # Usa a pasta estática definida explicitamente para enviar o ficheiro.
-    return send_from_directory(app.static_folder, 'index.html')
+    # Determina o caminho absoluto para o diretório do projeto no momento do pedido.
+    # CORREÇÃO: Aponta para 'eternaldle.html' em vez de 'index.html'.
+    project_root = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(project_root, 'eternaldle.html')
 
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
