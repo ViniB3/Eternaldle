@@ -1,13 +1,15 @@
 import sqlite3
 import random
 import os
+import traceback
 from flask import Flask, jsonify, session, request, send_from_directory
 from flask_cors import CORS
 
 # --- Configuração do Flask e Caminhos ---
 app = Flask(__name__)
-# SOLUÇÃO FINAL: Usar o diretório do projeto para tudo.
-# Isto garante que a app encontra a base de dados criada pelo script de build.
+
+# SOLUÇÃO GRATUITA E FINAL: Usar o diretório do projeto para tudo.
+# O build do Render cria o ficheiro na pasta do projeto, e a app irá encontrá-lo aqui.
 project_root = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
@@ -19,11 +21,15 @@ app.config['SESSION_COOKIE_SECURE'] = True
 CORS(app, supports_credentials=True)
 
 # --- VERIFICADOR DE ARRANQUE ---
+print("="*60)
+print("INICIANDO SERVIDOR FLASK")
+print(f"Procurando base de dados em: {DATABASE_FILE}")
 if not os.path.exists(DATABASE_FILE):
-    print("="*60)
-    print(f"!!! FATAL ERROR: A base de dados '{DATABASE_FILE}' não foi encontrada. !!!")
-    print("Isto significa que o 'Build Command' ('python setup_database.py') pode ter falhado.")
-    print("="*60)
+    print("!!! ATENÇÃO: A base de dados NÃO FOI ENCONTRADA no arranque. !!!")
+else:
+    print(">>> SUCESSO: A base de dados foi encontrada no arranque. <<<")
+print("="*60)
+
 
 # --- Funções da Base de Dados ---
 def get_all_characters():
@@ -52,16 +58,34 @@ def serve_index():
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
     """Inicia um novo jogo, escolhendo um personagem aleatório como solução."""
-    all_characters = get_all_characters()
-    if all_characters is None or not all_characters:
-        print("ERRO na API start_game: A lista de personagens está vazia ou a base de dados falhou.")
-        return jsonify({'error': 'Falha crítica ao carregar os dados dos personagens.'}), 500
+    print("\n--- Recebido pedido em /api/start_game ---")
+    try:
+        all_characters = get_all_characters()
 
-    solution_character = random.choice(all_characters)
-    session['solution'] = dict(solution_character)
-    print(f"O jogo começou. Solução é: {session['solution']['NOME']}")
-    character_names = [char['NOME'] for char in all_characters]
-    return jsonify({'characterNames': character_names})
+        if all_characters is None:
+            print("ERRO: get_all_characters() retornou None. A base de dados não existe ou está corrupta.")
+            return jsonify({'error': 'O servidor não conseguiu ler a base de dados.'}), 500
+        
+        if not all_characters:
+            print("ERRO: A lista de personagens está vazia.")
+            return jsonify({'error': 'A base de dados parece estar vazia.'}), 500
+
+        print(f"Sucesso! {len(all_characters)} personagens carregados da base de dados.")
+        
+        solution_character = random.choice(all_characters)
+        session['solution'] = dict(solution_character)
+        
+        print(f"Personagem solução escolhido: {session['solution']['NOME']}")
+        
+        character_names = [char['NOME'] for char in all_characters]
+        
+        print("Enviando lista de nomes para o frontend...")
+        return jsonify({'characterNames': character_names})
+
+    except Exception as e:
+        print(f"!!! ERRO INESPERADO EM start_game: {e} !!!")
+        traceback.print_exc()
+        return jsonify({'error': 'Ocorreu um erro inesperado no servidor.'}), 500
 
 @app.route('/api/guess', methods=['POST'])
 def handle_guess():
@@ -97,7 +121,7 @@ def handle_guess():
                 elif int(guess_value) > int(solution_value):
                     status = 'higher'
             except (ValueError, TypeError): status = 'incorrect'
-        elif key in ['CLASSE', 'ALCANÇE']:
+        elif key in ['CLASSE', 'ALCANCE']:
             guess_parts = {part.strip() for part in str(guess_value).split(',')}
             solution_parts = {part.strip() for part in str(solution_value).split(',')}
             if guess_parts.intersection(solution_parts):
