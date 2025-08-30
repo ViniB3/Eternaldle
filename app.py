@@ -19,7 +19,10 @@ app.config['SESSION_COOKIE_SECURE'] = True
 # O supports_credentials=True é essencial para que a sessão funcione.
 CORS(app, supports_credentials=True)
 
-DATABASE_FILE = 'eternaldle.db'
+# CORREÇÃO: Usar um caminho absoluto para o ficheiro da base de dados para garantir que ele é encontrado no Render.
+project_root = os.path.dirname(os.path.abspath(__file__))
+DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
+
 
 # --- Lógica de Criação da Base de Dados (para garantir que existe) ---
 # Esta parte agora é mais para desenvolvimento local, o Render usará o "Build Command".
@@ -67,7 +70,6 @@ def serve_index():
     """Serve a página principal do jogo."""
     # Determina o caminho absoluto para o diretório do projeto no momento do pedido.
     # CORREÇÃO: Aponta para 'eternaldle.html' em vez de 'index.html'.
-    project_root = os.path.dirname(os.path.abspath(__file__))
     return send_from_directory(project_root, 'eternaldle.html')
 
 @app.route('/api/start_game', methods=['POST'])
