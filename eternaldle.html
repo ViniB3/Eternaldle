@@ -13,7 +13,7 @@
             --header-bg: #1a1a1b;
 
             /* Status Colors */
-            --incorrect-bg: #d9534f;
+            --incorrect-bg: #d9534f; /* Alterado para vermelho */
             --partial-bg: #b59f3b;
             --correct-bg: #538d4e;
             --error-bg: #d9534f;
@@ -169,8 +169,6 @@
     <div class="container">
         <header>
             <h1>Adivinhe o Personagem</h1>
-            <!-- Elemento para exibir a solução para fins de teste -->
-            <!-- <p id="debug-solution" style="color: #ffcc00; font-size: 0.9rem; min-height: 1.2rem;"></p> -->
         </header>
 
         <form id="guess-form" autocomplete="off">
@@ -183,7 +181,7 @@
             <table id="results-table">
                 <thead>
                     <tr>
-                        <th></th>
+                        <th>Imagem</th>
                         <th>Personagem</th>
                         <th>Gênero</th>
                         <th>Classe(s)</th>
@@ -295,9 +293,6 @@
                     const img = document.createElement('img');
                     
                     img.crossOrigin = 'anonymous';
-                    
-                    // --- ALTERAÇÃO PRINCIPAL ---
-                    // Adiciona uma política de referência para aumentar a compatibilidade com o Imgur.
                     img.referrerPolicy = 'no-referrer';
 
                     img.src = result.value;
