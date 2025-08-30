@@ -7,7 +7,11 @@ from flask_cors import CORS
 # --- Configuração do Flask e Caminhos ---
 app = Flask(__name__)
 project_root = os.path.dirname(os.path.abspath(__file__))
-DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
+
+# SOLUÇÃO FINAL: Usar o diretório de dados persistente do Render.
+# Se a variável de ambiente RENDER não estiver definida (desenvolvimento local), usa o diretório atual.
+data_dir = os.environ.get('RENDER_DATA_DIR', project_root)
+DATABASE_FILE = os.path.join(data_dir, 'eternaldle.db')
 
 # Chave secreta e configuração de cookies para a sessão
 app.config['SECRET_KEY'] = 'a_chave_secreta_super_dificil_de_adivinhar'
@@ -17,21 +21,17 @@ app.config['SESSION_COOKIE_SECURE'] = True
 CORS(app, supports_credentials=True)
 
 # --- VERIFICADOR DE ARRANQUE ---
-# Esta verificação é executada assim que o servidor Gunicorn inicia o 'app.py'.
 if not os.path.exists(DATABASE_FILE):
     print("="*60)
     print(f"!!! FATAL ERROR: A base de dados '{DATABASE_FILE}' não foi encontrada. !!!")
     print("Isto significa que o 'Build Command' ('python setup_database.py') pode ter falhado ou não foi executado.")
     print("Verifique os logs da fase de 'Build' no Render para encontrar o erro.")
-    print("Lembre-se: O ficheiro 'eternaldle.db' NÃO deve estar no seu repositório GitHub.")
     print("="*60)
-# A aplicação irá falhar na primeira chamada à API, mas este log dir-nos-á porquê.
 
 # --- Funções da Base de Dados ---
 def get_all_characters():
     """Busca todos os dados dos personagens da base de dados SQLite."""
     if not os.path.exists(DATABASE_FILE):
-        # Esta é uma segunda verificação, caso a primeira falhe
         print(f"ERRO DENTRO DA API: O ficheiro da base de dados '{DATABASE_FILE}' desapareceu ou nunca foi criado.")
         return None
 
