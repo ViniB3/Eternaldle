@@ -4,8 +4,9 @@ import os
 from flask import Flask, jsonify, session, request, send_from_directory
 from flask_cors import CORS
 
-# Modificação: Dizer ao Flask para servir ficheiros estáticos a partir do diretório raiz.
-app = Flask(__name__, static_folder='.', static_url_path='')
+# Modificação: Simplificamos a inicialização do Flask para maior clareza.
+# A lógica de servir ficheiros será tratada explicitamente na rota.
+app = Flask(__name__)
 
 # Chave secreta para gerir as sessões de utilizador.
 # Numa aplicação real, esta chave deve ser mais segura e não deve ser partilhada.
@@ -63,8 +64,9 @@ def get_all_characters():
 @app.route('/')
 def serve_index():
     """Serve a página principal do jogo."""
-    # A nova configuração do Flask torna esta função mais simples e robusta.
-    return app.send_static_file('index.html')
+    # Usamos o caminho absoluto do diretório do script para garantir que
+    # o Render consegue encontrar o ficheiro 'index.html' de forma fiável.
+    return send_from_directory(os.path.dirname(os.path.abspath(__file__)), 'index.html')
 
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
