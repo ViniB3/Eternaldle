@@ -6,12 +6,10 @@ from flask_cors import CORS
 
 # --- Configuração do Flask e Caminhos ---
 app = Flask(__name__)
+# SOLUÇÃO FINAL: Usar o diretório do projeto para tudo.
+# Isto garante que a app encontra a base de dados criada pelo script de build.
 project_root = os.path.dirname(os.path.abspath(__file__))
-
-# SOLUÇÃO FINAL: Usar o diretório de dados persistente do Render.
-# Se a variável de ambiente RENDER não estiver definida (desenvolvimento local), usa o diretório atual.
-data_dir = os.environ.get('RENDER_DATA_DIR', project_root)
-DATABASE_FILE = os.path.join(data_dir, 'eternaldle.db')
+DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
 # Chave secreta e configuração de cookies para a sessão
 app.config['SECRET_KEY'] = 'a_chave_secreta_super_dificil_de_adivinhar'
@@ -24,17 +22,14 @@ CORS(app, supports_credentials=True)
 if not os.path.exists(DATABASE_FILE):
     print("="*60)
     print(f"!!! FATAL ERROR: A base de dados '{DATABASE_FILE}' não foi encontrada. !!!")
-    print("Isto significa que o 'Build Command' ('python setup_database.py') pode ter falhado ou não foi executado.")
-    print("Verifique os logs da fase de 'Build' no Render para encontrar o erro.")
+    print("Isto significa que o 'Build Command' ('python setup_database.py') pode ter falhado.")
     print("="*60)
 
 # --- Funções da Base de Dados ---
 def get_all_characters():
     """Busca todos os dados dos personagens da base de dados SQLite."""
     if not os.path.exists(DATABASE_FILE):
-        print(f"ERRO DENTRO DA API: O ficheiro da base de dados '{DATABASE_FILE}' desapareceu ou nunca foi criado.")
         return None
-
     try:
         conn = sqlite3.connect(DATABASE_FILE)
         conn.row_factory = sqlite3.Row
@@ -44,7 +39,7 @@ def get_all_characters():
         conn.close()
         return [dict(row) for row in characters_raw]
     except sqlite3.OperationalError as e:
-        print(f"ERRO DE SQL: {e}. A tabela 'eternaldle' pode estar em falta na base de dados.")
+        print(f"ERRO DE SQL: {e}.")
         return None
 
 # --- Rotas da Aplicação (API e Frontend) ---
@@ -60,7 +55,7 @@ def start_game():
     all_characters = get_all_characters()
     if all_characters is None or not all_characters:
         print("ERRO na API start_game: A lista de personagens está vazia ou a base de dados falhou.")
-        return jsonify({'error': 'Falha crítica ao carregar os dados dos personagens. Verifique os logs do servidor.'}), 500
+        return jsonify({'error': 'Falha crítica ao carregar os dados dos personagens.'}), 500
 
     solution_character = random.choice(all_characters)
     session['solution'] = dict(solution_character)
@@ -80,13 +75,13 @@ def handle_guess():
     
     all_characters = get_all_characters()
     if all_characters is None:
-        return jsonify({'error': 'Falha ao recarregar os dados dos personagens para o palpite.'}), 500
+        return jsonify({'error': 'Falha ao recarregar os dados para o palpite.'}), 500
         
     guess_character = next((char for char in all_characters if char['NOME'].lower() == guess_name.lower()), None)
     if not guess_character:
         return jsonify({'error': 'Personagem não encontrado.'}), 404
 
-    # --- Lógica de Comparação (mantida como antes) ---
+    # --- Lógica de Comparação ---
     results = {}
     is_correct = (guess_character['NOME'].lower() == solution['NOME'].lower())
     for key in solution.keys():
@@ -102,7 +97,7 @@ def handle_guess():
                 elif int(guess_value) > int(solution_value):
                     status = 'higher'
             except (ValueError, TypeError): status = 'incorrect'
-        elif key in ['CLASSE', 'ALCANCE']:
+        elif key in ['CLASSE', 'ALCANÇE']:
             guess_parts = {part.strip() for part in str(guess_value).split(',')}
             solution_parts = {part.strip() for part in str(solution_value).split(',')}
             if guess_parts.intersection(solution_parts):
@@ -114,6 +109,5 @@ def handle_guess():
     return jsonify({'results': results, 'isCorrect': is_correct})
 
 if __name__ == '__main__':
-    # Esta parte é para execução local e não é usada pelo Gunicorn no Render
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
