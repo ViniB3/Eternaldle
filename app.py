@@ -1,128 +1,159 @@
-from flask import Flask, jsonify, request, session
-from flask_cors import CORS
 import sqlite3
 import random
-from datetime import timedelta
 import os
+from flask import Flask, jsonify, session, request, send_from_directory
+from flask_cors import CORS
 
 app = Flask(__name__)
-
-# Configuração de Segurança e Sessão
-app.config['SECRET_KEY'] = os.urandom(24)
+# Chave secreta para gerir as sessões de utilizador.
+# Numa aplicação real, esta chave deve ser mais segura e não deve ser partilhada.
+app.config['SECRET_KEY'] = 'a_chave_secreta_super_dificil_de_adivinhar'
 app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
-app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 
-# Configuração do CORS para permitir comunicação com o frontend
-CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "*"}})
+# Configuração do CORS para permitir pedidos do frontend.
+# O supports_credentials=True é essencial para que a sessão funcione.
+CORS(app, supports_credentials=True)
 
-DB_FILE = "eternaldle.db"
-all_characters = []
+DATABASE_FILE = 'eternaldle.db'
 
-def get_db_connection():
-    """Cria e retorna uma conexão com a base de dados SQLite."""
-    conn = sqlite3.connect(DB_FILE)
-    # Retorna as linhas como dicionários para fácil acesso por nome de coluna
-    conn.row_factory = sqlite3.Row
-    return conn
+# --- Lógica de Criação da Base de Dados (para garantir que existe) ---
+# Esta parte agora é mais para desenvolvimento local, o Render usará o "Build Command".
+def create_database_if_not_exists():
+    """Verifica se o ficheiro da base de dados existe e, se não, cria-o."""
+    if not os.path.exists(DATABASE_FILE):
+        print(f"O ficheiro da base de dados '{DATABASE_FILE}' não foi encontrado. Por favor, execute 'python setup_database.py' para o criar.")
+        # O ideal é não criar automaticamente aqui para manter o servidor focado em servir.
+        # A criação deve ser um passo de "build" ou configuração inicial.
 
-def load_characters_from_db():
-    """Carrega todos os personagens da base de dados para a memória."""
-    global all_characters
+# --- Carregamento de Dados ---
+def get_all_characters():
+    """Busca todos os dados dos personagens da base de dados SQLite."""
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM eternaldle")
-        characters_raw = cursor.fetchall()
+        conn = sqlite3.connect(DATABASE_FILE)
+        conn.row_factory = sqlite3.Row  # Permite aceder às colunas pelo nome
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM eternaldle")
+        characters_raw = cur.fetchall()
         conn.close()
 
-        # Converte os objetos sqlite3.Row em dicionários
-        all_characters = [dict(row) for row in characters_raw]
+        # Converte os resultados para uma lista de dicionários
+        characters_clean = [dict(row) for row in characters_raw]
         
-        print("--- VERIFICAÇÃO DE DADOS ---")
-        if all_characters:
-            print(f"Carregados {len(all_characters)} personagens com sucesso.")
+        # VERIFICAÇÃO DE DADOS (para depuração)
+        print("\n--- VERIFICAÇÃO DE DADOS CARREGADOS ---")
+        abigail_data = next((char for char in characters_clean if char['NOME'] == 'Abigail'), None)
+        if abigail_data:
+            print(f"Dados da Abigail: {abigail_data}")
         else:
-            print("AVISO: Nenhum personagem foi carregado da base de dados.")
-        print("--------------------------")
-        
-    except sqlite3.Error as e:
-        print(f"ERRO CRÍTICO: Não foi possível carregar os personagens da base de dados: {e}")
-        all_characters = []
+            print("Personagem Abigail não encontrada na base de dados.")
+        print("--------------------------------------\n")
 
+        return characters_clean
+    except sqlite3.OperationalError as e:
+        print(f"ERRO DE BASE DE DADOS: {e}. Verifique se o ficheiro '{DATABASE_FILE}' existe e tem a tabela 'eternaldle'.")
+        print("Execute 'python setup_database.py' para criar a base de dados.")
+        return None
 
-@app.route('/api/start_game', methods=['GET'])
+# --- Rotas da Aplicação ---
+
+# Rota para servir o ficheiro index.html (PÁGINA PRINCIPAL) - ADICIONADA
+@app.route('/')
+def serve_index():
+    """Serve a página principal do jogo."""
+    return send_from_directory('.', 'index.html')
+
+@app.route('/api/start_game', methods=['POST'])
 def start_game():
     """Inicia um novo jogo, escolhendo um personagem aleatório como solução."""
+    all_characters = get_all_characters()
+    if all_characters is None:
+        return jsonify({'error': 'Falha ao carregar os dados dos personagens. Verifique os logs do servidor.'}), 500
+
+    # Adicionada verificação para o caso de a base de dados estar vazia
     if not all_characters:
-        return jsonify({'error': 'Erro no servidor: Não foi possível carregar os personagens.'}), 500
+        print("ERRO: A base de dados de personagens está vazia. O comando de build pode ter falhado.")
+        return jsonify({'error': 'A base de dados de personagens está vazia. Verifique a configuração do deploy.'}), 500
 
     solution_character = random.choice(all_characters)
     session['solution'] = dict(solution_character)
-    session.permanent = True
-
-    print(f"--- Jogo Iniciado. Solução: {session['solution']['NOME']} ---")
+    
+    print(f"O jogo começou. Solução é: {session['solution']['NOME']}")
 
     character_names = [char['NOME'] for char in all_characters]
-    return jsonify({
-        'characterNames': character_names
-    })
+    return jsonify({'characterNames': character_names})
 
 @app.route('/api/guess', methods=['POST'])
 def handle_guess():
     """Lida com o palpite de um utilizador e retorna a comparação detalhada."""
     data = request.get_json()
     guess_name = data.get('guess', '').strip()
-    solution = session.get('solution')
-
-    if not solution:
+    
+    # Verifica se a sessão e a solução existem
+    if 'solution' not in session:
         print("ERRO: Tentativa de palpite sem um jogo iniciado na sessão.")
         return jsonify({'error': 'O jogo não foi iniciado. Por favor, atualize a página.'}), 400
 
+    solution = session['solution']
+    
+    all_characters = get_all_characters()
+    if all_characters is None:
+        return jsonify({'error': 'Falha ao recarregar os dados dos personagens.'}), 500
+        
     guess_character = next((char for char in all_characters if char['NOME'].lower() == guess_name.lower()), None)
 
     if not guess_character:
-        return jsonify({'error': 'Personagem inválido.'}), 404
+        return jsonify({'error': 'Personagem não encontrado.'}), 404
 
-    print(f"--- DADOS DO PALPITE ('{guess_name}') ---")
-    print("Encontrado na memória:", guess_character)
-    print("---------------------------------")
-    
+    # --- Lógica de Comparação ---
     results = {}
-    
+    is_correct = (guess_character['NOME'].lower() == solution['NOME'].lower())
+
     # Compara cada propriedade
-    for key, solution_value in solution.items():
-        guess_value = guess_character[key]
+    for key in solution.keys():
+        guess_value = guess_character.get(key)
+        solution_value = solution.get(key)
         status = 'incorrect'
 
-        if str(guess_value).lower() == str(solution_value).lower():
+        if guess_value == solution_value:
             status = 'correct'
-        elif key in ['CLASSE', 'ALCANCE']:
-            # Verifica se alguma das classes/alcances do palpite está na solução
-            guess_items = {item.strip().lower() for item in str(guess_value).split(',')}
-            solution_items = {item.strip().lower() for item in str(solution_value).split(',')}
-            if guess_items.intersection(solution_items):
-                status = 'partial'
+        # Lógica para campos numéricos (ano e quantidade de armas)
         elif key in ['ANO_DE_LANCAMENTO', 'QUANTIDADE_DE_ARMA']:
-            if int(guess_value) < int(solution_value):
-                status = 'lower'
-            else:
-                status = 'higher'
-        
+            try:
+                if int(guess_value) < int(solution_value):
+                    status = 'lower'
+                elif int(guess_value) > int(solution_value):
+                    status = 'higher'
+            except (ValueError, TypeError):
+                # Se a conversão falhar, mantém como 'incorrect'
+                status = 'incorrect'
+        # Lógica para campos com múltiplos valores (Classe e Alcance)
+        elif key in ['CLASSE', 'ALCANCE']:
+            guess_parts = {part.strip() for part in str(guess_value).split(',')}
+            solution_parts = {part.strip() for part in str(solution_value).split(',')}
+            if guess_parts.intersection(solution_parts):
+                status = 'partial' # Pelo menos um valor em comum
+
         results[key.lower()] = {'value': guess_value, 'status': status}
 
-    is_correct = guess_name.lower() == solution['NOME'].lower()
+    # Garante que o URL da imagem está sempre presente
+    if 'IMAGEM_URL' in guess_character:
+        results['imagem_url'] = {'value': guess_character['IMAGEM_URL']}
 
-    response_data = {'results': results, 'isCorrect': is_correct}
-    print("--- RESPOSTA ENVIADA PARA O FRONTEND ---")
-    print(response_data)
-    print("--------------------------------------")
-    
-    return jsonify(response_data)
+    # --- Depuração no Servidor ---
+    print("\n--- DADOS DO PALPITE ('%s') ---" % guess_name)
+    print(f"Encontrado na memória: {guess_character}")
+    print("---------------------------------")
+    print(f"--- RESPOSTA ENVIADA PARA O FRONTEND (Solução era: {solution['NOME']}) ---")
+    import json
+    print(json.dumps({'results': results, 'isCorrect': is_correct}, indent=2, ensure_ascii=False))
+    print("---------------------------------\n")
 
+    return jsonify({'results': results, 'isCorrect': is_correct})
 
 if __name__ == '__main__':
-    # Carrega os personagens para a memória uma vez, antes de o servidor começar a aceitar pedidos.
-    load_characters_from_db()
-    app.run(debug=True, host='0.0.0.0')
+    create_database_if_not_exists()
+    # Para desenvolvimento local, pode usar: app.run(debug=True)
+    # Para produção, o Gunicorn será usado.
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
 
