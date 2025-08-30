@@ -31,6 +31,18 @@ else:
 print("="*60)
 
 
+# --- AUDITOR DE PEDIDOS (NOVO PARA DEPURAÇÃO) ---
+@app.before_request
+def log_request_info():
+    """Regista nos logs informação sobre cada pedido que chega ao servidor."""
+    print("\n--- INCOMING REQUEST ---")
+    print(f"Path: {request.path}")
+    print(f"Method: {request.method}")
+    # Descomente a linha abaixo para ver os cabeçalhos completos se necessário
+    # print(f"Headers: {request.headers}")
+    print("------------------------\n")
+
+
 # --- Funções da Base de Dados ---
 def get_all_characters():
     """Busca todos os dados dos personagens da base de dados SQLite."""
@@ -58,7 +70,7 @@ def serve_index():
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
     """Inicia um novo jogo, escolhendo um personagem aleatório como solução."""
-    print("\n--- Recebido pedido em /api/start_game ---")
+    print("\n--- Executando lógica de /api/start_game ---")
     try:
         all_characters = get_all_characters()
 
@@ -121,7 +133,7 @@ def handle_guess():
                 elif int(guess_value) > int(solution_value):
                     status = 'higher'
             except (ValueError, TypeError): status = 'incorrect'
-        elif key in ['CLASSE', 'ALCANCE']:
+        elif key in ['CLASSE', 'ALCANÇE']:
             guess_parts = {part.strip() for part in str(guess_value).split(',')}
             solution_parts = {part.strip() for part in str(solution_value).split(',')}
             if guess_parts.intersection(solution_parts):
