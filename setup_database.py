@@ -8,15 +8,15 @@ DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
 # Lista completa de personagens
 characters = [
-    ('Abigail','Mulher','Lutador','Corpo-a-corpo','Cinza','2023',1,'https://i.imgur.com/guAblq7.jpeg'),
+    ('Abigail','Mulher','Lutador','Corpo-a-corpo','Cinza','2023',1,'https://i.imgur.com/vvdhZqz.png'),
     ('Adela','Mulher','Mago,Suporte','Longo alcance','Preto','2021',2,'https://i.imgur.com/wZt2Icr.jpeg'),
     ('Adina','Mulher','Mago','Longo alcance','Cinza','2022',1,'https://i.imgur.com/Hk3GB6X.jpeg'),
     ('Adriana','Mulher','Mago','Longo alcance','Vermelho','2020',1,'https://i.imgur.com/HTO1Wv8.jpeg'),
     ('Aiden','Homem','Lutador','Corpo-a-corpo,Longo alcance','Branco','2022',1,'https://i.imgur.com/0BTlO7K.jpeg'),
     ('Alex','Homem','Lutador','Corpo-a-corpo,Longo alcance','Loiro','2021',4,'https://i.imgur.com/ZVLeiTg.jpeg'),
     ('Alonso','Homem','Tank','Corpo-a-corpo','Loiro','2023',1,'https://i.imgur.com/w00JlL3.jpeg'),
-    ('Arda','Homem','Mago,Suporte','Longo alcance','Loiro','2023',1,'https://i.imgur.com/4Q4d21g.jpeg'),
-    ('Aya','Mulher','Mago,Carregador','Longo alcance','Castanho','2019',3,'https://i.imgur.com/4Q4d21g.jpeg'), # URL corrigido
+    ('Arda','Homem','Mago,Suporte','Longo alcance','Loiro','2023',1,'https://i.imgur.com/RCkK2bL.png'),
+    ('Aya','Mulher','Mago,Carregador','Longo alcance','Castanho','2019',3,'https://i.imgur.com/ldY1zo4.png'),
     ('Barbara','Mulher','Mago','Corpo-a-corpo','Castanho','2021',1,'https://i.imgur.com/qqzCI8Z.jpeg'),
     ('Bernice','Homem','Carregador','Longo alcance','Loiro','2021',1,'https://i.imgur.com/YSUQsWA.jpeg'),
     ('Bianca','Mulher','Mago','Longo alcance','Azul','2021',1,'https://i.imgur.com/HF2dTni.png'),
@@ -129,4 +129,5 @@ def create_and_populate_db():
 
 if __name__ == '__main__':
     create_and_populate_db()
+
 
