@@ -1,11 +1,10 @@
 import sqlite3
 import os
 
-# SOLUÇÃO FINAL: Usar o diretório de dados persistente do Render.
-# Se a variável de ambiente RENDER não estiver definida (desenvolvimento local), usa o diretório atual.
+# SOLUÇÃO FINAL: Usar o diretório do projeto para tudo.
+# Isto garante que a app encontra a base de dados criada pelo script de build.
 project_root = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.environ.get('RENDER_DATA_DIR', project_root)
-DATABASE_FILE = os.path.join(data_dir, 'eternaldle.db')
+DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
 # Lista completa de personagens
 characters = [
@@ -130,3 +129,4 @@ def create_and_populate_db():
 
 if __name__ == '__main__':
     create_and_populate_db()
+
