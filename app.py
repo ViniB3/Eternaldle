@@ -57,11 +57,14 @@ def get_all_characters():
 
 # --- Rotas da Aplicação ---
 
-# Rota para servir o ficheiro index.html (PÁGINA PRINCIPAL) - ADICIONADA
+# Rota para servir o ficheiro index.html (PÁGINA PRINCIPAL)
 @app.route('/')
 def serve_index():
     """Serve a página principal do jogo."""
-    return send_from_directory('.', 'index.html')
+    # Usamos o caminho absoluto da pasta do script para garantir que o index.html é sempre encontrado,
+    # independentemente de onde o comando 'python app.py' foi executado.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(script_dir, 'index.html')
 
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
@@ -128,7 +131,7 @@ def handle_guess():
                 # Se a conversão falhar, mantém como 'incorrect'
                 status = 'incorrect'
         # Lógica para campos com múltiplos valores (Classe e Alcance)
-        elif key in ['CLASSE', 'ALCANCE']:
+        elif key in ['CLASSE', 'ALCANTE']:
             guess_parts = {part.strip() for part in str(guess_value).split(',')}
             solution_parts = {part.strip() for part in str(solution_value).split(',')}
             if guess_parts.intersection(solution_parts):
