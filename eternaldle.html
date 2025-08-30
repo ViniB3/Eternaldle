@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo Eternaldle</title>
+    <style>
+        :root {
+            --bg-color: #121213;
+            --text-color: #e2e2e2;
+            --border-color: #3a3a3c;
+            --input-bg: #222225;
+            --header-bg: #1a1a1b;
+
+            /* Status Colors */
+            --incorrect-bg: #902020;
+            --partial-bg: #b59f3b;
+            --correct-bg: #538d4e;
+        }
+
+        html, body {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: white;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        #guess-form {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 2rem;
+        }
+
+        #character-input {
+            padding: 10px;
+            font-size: 1.2rem;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            width: 300px;
+        }
+
+        #guess-button {
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            background-color: var(--correct-bg);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        #guess-button:hover {
+            background-color: #6a9f61;
+        }
+        #guess-button:disabled {
+            background-color: var(--incorrect-bg);
+            cursor: not-allowed;
+        }
+
+        #results-container {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        #results-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+        }
+
+        #results-table th, #results-table td {
+            padding: 12px 8px;
+            border: 1px solid var(--border-color);
+            min-width: 110px;
+        }
+
+        #results-table th {
+            background-color: var(--header-bg);
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .result-row td {
+            background-color: var(--incorrect-bg);
+            font-weight: bold;
+            font-size: 1.1rem;
+            height: 60px;
+        }
+        .result-row .correct { background-color: var(--correct-bg); }
+        .result-row .partial { background-color: var(--partial-bg); }
+        
+        .numeric-cell {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .arrow {
+            font-size: 1.5rem;
+            line-height: 1;
+        }
+        
+        #toast-container {
+            position: fixed;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100;
+        }
+        .toast {
+            background-color: #e2e2e2;
+            color: #121213;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .toast.show { opacity: 1; }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Adivinhe o Personagem</h1>
+            <!-- Elemento para exibir a solução para fins de teste -->
+            <p id="debug-solution" style="color: #ffcc00; font-size: 0.9rem; min-height: 1.2rem;"></p>
+        </header>
+
+        <form id="guess-form" autocomplete="off">
+            <input type="text" id="character-input" list="character-list" placeholder="Digite o nome de um personagem...">
+            <datalist id="character-list"></datalist>
+            <button type="submit" id="guess-button">Adivinhar</button>
+        </form>
+
+        <div id="results-container">
+            <table id="results-table">
+                <thead>
+                    <tr>
+                        <th>Personagem</th>
+                        <th>Gênero</th>
+                        <th>Classe(s)</th>
+                        <th>Alcance</th>
+                        <th>Cor do Cabelo</th>
+                        <th>Ano de Lançamento</th>
+                        <th>Qtd. de Armas</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Resultados dos palpites serão adicionados aqui -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div id="toast-container"></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const guessForm = document.getElementById('guess-form');
+        const characterInput = document.getElementById('character-input');
+        const characterDatalist = document.getElementById('character-list');
+        const resultsTableBody = document.querySelector('#results-table tbody');
+        const guessButton = document.getElementById('guess-button');
+
+        const API_BASE_URL = 'http://127.0.0.1:5000';
+        let characterNames = [];
+        let isGameOver = false;
+
+        async function initializeGame() {
+            try {
+                // MODIFICADO: Adicionado { credentials: 'include' } para enviar cookies de sessão
+                const response = await fetch(`${API_BASE_URL}/api/start_game`, { credentials: 'include' });
+                if (!response.ok) throw new Error('Falha ao iniciar o jogo no servidor.');
+                
+                const data = await response.json();
+                characterNames = data.characterNames.map(name => name.trim());
+                
+                characterDatalist.innerHTML = characterNames.map(name => `<option value="${name}"></option>`).join('');
+
+            } catch (error) {
+                console.error("Erro de Inicialização:", error);
+                showToast("Erro ao conectar com o servidor. O backend está a correr?", 5000);
+                guessButton.disabled = true;
+            }
+        }
+
+        guessForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleGuess();
+        });
+
+        async function handleGuess() {
+            const guess = characterInput.value.trim();
+            if (isGameOver || !guess) return;
+
+            if (!characterNames.some(name => name.toLowerCase() === guess.toLowerCase())) {
+                showToast("Nome de personagem inválido");
+                return;
+            }
+
+            try {
+                // MODIFICADO: Adicionado { credentials: 'include' } para enviar cookies de sessão
+                const response = await fetch(`${API_BASE_URL}/api/guess`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ guess: guess }),
+                    credentials: 'include'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Palpite inválido.');
+                }
+                
+                const data = await response.json();
+                displayGuessResult(data.results);
+
+                if (data.isCorrect) {
+                    isGameOver = true;
+                    guessButton.disabled = true;
+                    characterInput.disabled = true;
+                    showToast("Parabéns! Você acertou!", 5000);
+                }
+
+                characterInput.value = '';
+
+            } catch(error) {
+                console.error("Erro no Palpite:", error);
+                showToast(error.message);
+            }
+        }
+
+        function displayGuessResult(results) {
+            const row = document.createElement('tr');
+            row.classList.add('result-row');
+
+            const properties = ['nome', 'genero', 'classe', 'alcance', 'cor_cabelo', 'ano_de_lancamento', 'quantidade_de_arma'];
+
+            properties.forEach(prop => {
+                const cell = document.createElement('td');
+                const result = results[prop];
+                
+                if (prop === 'ano_de_lancamento' || prop === 'quantidade_de_arma') {
+                    const numericCell = document.createElement('div');
+                    numericCell.className = 'numeric-cell';
+                    
+                    const valueSpan = document.createElement('span');
+                    valueSpan.textContent = result.value;
+                    numericCell.appendChild(valueSpan);
+                    
+                    if (result.status !== 'correct') {
+                        const arrow = document.createElement('span');
+                        arrow.className = 'arrow';
+                        arrow.textContent = result.status === 'higher' ? '⬆' : '⬇';
+                        numericCell.appendChild(arrow);
+                    }
+                    cell.appendChild(numericCell);
+                } else {
+                    cell.textContent = String(result.value).replace(/,/g, ', ');
+                }
+                
+                cell.classList.add(result.status);
+                row.appendChild(cell);
+            });
+            
+            resultsTableBody.prepend(row);
+        }
+
+        function showToast(message, duration = 2000) {
+            const toastContainer = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.textContent = message;
+            toast.classList.add('toast');
+            toastContainer.appendChild(toast);
+            
+            setTimeout(() => toast.classList.add('show'), 10);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                toast.addEventListener('transitionend', () => toast.remove());
+            }, duration);
+        }
+
+        initializeGame();
+    });
+    </script>
+</body>
+</html>
+
