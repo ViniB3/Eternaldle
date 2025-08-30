@@ -227,13 +227,13 @@
             row.appendChild(createCell(results.cor_cabelo.value, results.cor_cabelo.status));
             
             let launchContent = results.ano_de_lancamento.value;
-            if(results.ano_de_lancamento.status === 'higher') launchContent += ' ↑';
-            if(results.ano_de_lancamento.status === 'lower') launchContent += ' ↓';
+            if(results.ano_de_lancamento.status === 'higher') launchContent += ' ↓'; // Corrigido
+            if(results.ano_de_lancamento.status === 'lower') launchContent += ' ↑'; // Corrigido
             row.appendChild(createCell(launchContent, results.ano_de_lancamento.status));
 
             let weaponContent = results.quantidade_de_arma.value;
-            if(results.quantidade_de_arma.status === 'higher') weaponContent += ' ↑';
-            if(results.quantidade_de_arma.status === 'lower') weaponContent += ' ↓';
+            if(results.quantidade_de_arma.status === 'higher') weaponContent += ' ↓'; // Corrigido
+            if(results.quantidade_de_arma.status === 'lower') weaponContent += ' ↑'; // Corrigido
             row.appendChild(createCell(weaponContent, results.quantidade_de_arma.status));
 
             resultsBody.prepend(row);
@@ -249,3 +249,4 @@
     </script>
 </body>
 </html>
+
