@@ -1,7 +1,7 @@
 import sqlite3
-import random
 import os
 import traceback
+from datetime import datetime  # Importa a biblioteca de data e hora
 from flask import Flask, jsonify, session, request, send_from_directory
 from flask_cors import CORS
 
@@ -9,7 +9,6 @@ from flask_cors import CORS
 app = Flask(__name__)
 
 # SOLUÇÃO GRATUITA E FINAL: Usar o diretório do projeto para tudo.
-# O build do Render cria o ficheiro na pasta do projeto, e a app irá encontrá-lo aqui.
 project_root = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
@@ -19,29 +18,6 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
 CORS(app, supports_credentials=True)
-
-# --- VERIFICADOR DE ARRANQUE ---
-print("="*60)
-print("INICIANDO SERVIDOR FLASK")
-print(f"Procurando base de dados em: {DATABASE_FILE}")
-if not os.path.exists(DATABASE_FILE):
-    print("!!! ATENÇÃO: A base de dados NÃO FOI ENCONTRADA no arranque. !!!")
-else:
-    print(">>> SUCESSO: A base de dados foi encontrada no arranque. <<<")
-print("="*60)
-
-
-# --- AUDITOR DE PEDIDOS (NOVO PARA DEPURAÇÃO) ---
-@app.before_request
-def log_request_info():
-    """Regista nos logs informação sobre cada pedido que chega ao servidor."""
-    print("\n--- INCOMING REQUEST ---")
-    print(f"Path: {request.path}")
-    print(f"Method: {request.method}")
-    # Descomente a linha abaixo para ver os cabeçalhos completos se necessário
-    # print(f"Headers: {request.headers}")
-    print("------------------------\n")
-
 
 # --- Funções da Base de Dados ---
 def get_all_characters():
@@ -61,7 +37,6 @@ def get_all_characters():
         return None
 
 # --- Rotas da Aplicação (API e Frontend) ---
-
 @app.route('/')
 def serve_index():
     """Serve a página principal do jogo."""
@@ -69,33 +44,34 @@ def serve_index():
 
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
-    """Inicia um novo jogo, escolhendo um personagem aleatório como solução."""
-    print("\n--- Executando lógica de /api/start_game ---")
+    """
+    Inicia um novo jogo, escolhendo um personagem do dia de forma determinística.
+    O personagem é o mesmo para todos durante 24h.
+    """
     try:
         all_characters = get_all_characters()
 
-        if all_characters is None:
-            print("ERRO: get_all_characters() retornou None. A base de dados não existe ou está corrupta.")
-            return jsonify({'error': 'O servidor não conseguiu ler a base de dados.'}), 500
-        
         if not all_characters:
-            print("ERRO: A lista de personagens está vazia.")
             return jsonify({'error': 'A base de dados parece estar vazia.'}), 500
 
-        print(f"Sucesso! {len(all_characters)} personagens carregados da base de dados.")
+        # Garante que a ordem dos personagens é sempre a mesma
+        sorted_characters = sorted(all_characters, key=lambda x: x['NOME'])
         
-        solution_character = random.choice(all_characters)
+        # Lógica para escolher o personagem do dia
+        epoch = datetime(2024, 1, 1)  # Uma data de início fixa
+        today = datetime.utcnow()
+        days_since_epoch = (today - epoch).days
+        
+        character_index = days_since_epoch % len(sorted_characters)
+        solution_character = sorted_characters[character_index]
+        
         session['solution'] = dict(solution_character)
-        
-        print(f"Personagem solução escolhido: {session['solution']['NOME']}")
         
         character_names = [char['NOME'] for char in all_characters]
         
-        print("Enviando lista de nomes para o frontend...")
         return jsonify({'characterNames': character_names})
 
     except Exception as e:
-        print(f"!!! ERRO INESPERADO EM start_game: {e} !!!")
         traceback.print_exc()
         return jsonify({'error': 'Ocorreu um erro inesperado no servidor.'}), 500
 
@@ -133,7 +109,7 @@ def handle_guess():
                 elif int(guess_value) > int(solution_value):
                     status = 'higher'
             except (ValueError, TypeError): status = 'incorrect'
-        elif key in ['CLASSE', 'ALCANÇE']:
+        elif key in ['CLASSE', 'ALCANCE']: # Corrigido para ALCANCE
             guess_parts = {part.strip() for part in str(guess_value).split(',')}
             solution_parts = {part.strip() for part in str(solution_value).split(',')}
             if guess_parts.intersection(solution_parts):
