@@ -11,13 +11,17 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #1a1a1d;
+            background-image: linear-gradient(rgba(10,10,12,0.65), rgba(10,10,12,0.65)), url('https://xboxwire.thesourcemediaassets.com/sites/2/2021/09/HeroImage.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            min-height: 100vh;
             color: #e2e2e2;
         }
         .correct-bg { background-color: #2a9d8f; }
-        .partial-bg { background-color: #e9c46a; }
-        .incorrect-bg { background-color: #e76f51; }
-        .higher-bg, .lower-bg { background-color: #f4a261; }
+        .partial-bg { background-color: #ece932; }
+        .incorrect-bg { background-color: #af1f1f; }
+        .higher-bg, .lower-bg { background-color: #f16f05; }
         .toast {
             position: fixed;
             bottom: 20px;
@@ -112,6 +116,26 @@
         let characterNames = [];
         let isGameOver = false;
 
+        // LocalStorage helpers to persist guesses per-solution (by date)
+        const todayKey = () => `eternaldle_guesses_${new Date().toISOString().slice(0,10)}`;
+        const wonKey = () => `eternaldle_won_${new Date().toISOString().slice(0,10)}`;
+
+        function loadLocalGuesses() {
+            try {
+                const raw = localStorage.getItem(todayKey());
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+        }
+        function saveLocalGuesses(guesses) {
+            try { localStorage.setItem(todayKey(), JSON.stringify(guesses)); } catch (e) { /* ignore */ }
+        }
+        function setLocalWon(flag) {
+            try { localStorage.setItem(wonKey(), flag ? '1' : ''); } catch (e) {}
+        }
+        function getLocalWon() {
+            try { return !!localStorage.getItem(wonKey()); } catch (e) { return false; }
+        }
+
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -139,7 +163,36 @@
 
                 const data = await response.json();
                 characterNames = data.characterNames.map(name => name.trim());
-                characterList.innerHTML = characterNames.map(name => `<option value="${name}"></option>`).join('');
+                // Do not populate the datalist immediately — populate when user types >=2 chars
+                characterList.innerHTML = '';
+
+                // Restore persisted guesses for this session/day
+                const localGuesses = loadLocalGuesses();
+                if (localGuesses && localGuesses.length > 0) {
+                    localGuesses.forEach(g => {
+                        try { renderResults(g.results); } catch (e) { console.error('Failed to render a local previous guess', e); }
+                    });
+                } else if (data.previousGuesses && data.previousGuesses.length > 0) {
+                    // If server has session guesses but local doesn't, adopt server-side guesses into local
+                    data.previousGuesses.forEach(g => {
+                        try { renderResults(g.results); } catch (e) { console.error('Failed to render a previous guess', e); }
+                    });
+                    try { saveLocalGuesses(data.previousGuesses); } catch (e) {}
+                }
+
+                // If the session already won for today, show win state
+                const localWon = getLocalWon();
+                if (data.hasWon || localWon) {
+                    isGameOver = true;
+                    gameContainer.classList.add('hidden');
+                    let countText = '';
+                    if (typeof data.todayCorrectCount !== 'undefined') {
+                        const n = data.todayCorrectCount;
+                        countText = `<p class="mt-2 text-gray-300">${n} ${n === 1 ? 'pessoa acertou' : 'pessoas acertaram'} o personagem de hoje.</p>`;
+                    }
+                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
+                    winMessageContainer.classList.remove('hidden');
+                }
 
             } catch (error) {
                 console.error("ERRO DETALHADO AO INICIAR O JOGO (fetch):", error);
@@ -175,10 +228,29 @@
                 if (data.isCorrect) {
                     isGameOver = true;
                     gameContainer.classList.add('hidden');
-                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>`;
+                    let countText = '';
+                    if (typeof data.todayCorrectCount !== 'undefined') {
+                        const n = data.todayCorrectCount;
+                        countText = `<p class="mt-2 text-gray-300">${n} ${n === 1 ? 'pessoa acertou' : 'pessoas acertaram'} o personagem de hoje.</p>`;
+                    }
+                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
                     winMessageContainer.classList.remove('hidden');
                     showToast('Você venceu!', false);
+                    // Mark local won flag
+                    setLocalWon(true);
                 }
+
+                // Persist this guess locally so it survives F5 (avoid duplicates)
+                try {
+                    const lsKey = todayKey();
+                    const existing = loadLocalGuesses();
+                    const entry = { guess: guess, results: data.results, isCorrect: data.isCorrect };
+                    if (!existing.some(g => g.guess.toLowerCase() === guess.toLowerCase())) {
+                        existing.push(entry);
+                        saveLocalGuesses(existing);
+                    }
+                } catch (e) { console.error('Could not persist guess locally', e); }
+
                 characterInput.value = '';
             
             } catch (error) {
@@ -240,6 +312,18 @@
         }
 
         document.addEventListener('DOMContentLoaded', startGame);
+        // Update datalist only after user types 2+ characters
+        characterInput.addEventListener('input', () => {
+            const val = characterInput.value.trim();
+            if (val.length >= 2 && characterNames && characterNames.length > 0) {
+                const q = val.toLowerCase();
+                // Use case-insensitive partial match and limit number of options
+                const matches = characterNames.filter(name => name.toLowerCase().includes(q)).slice(0, 50);
+                characterList.innerHTML = matches.map(name => `<option value="${name}"></option>`).join('');
+            } else {
+                characterList.innerHTML = '';
+            }
+        });
         guessButton.addEventListener('click', handleGuess);
         characterInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
