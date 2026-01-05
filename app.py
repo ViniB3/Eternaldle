@@ -133,11 +133,27 @@ def start_game():
         character_index = days_since_epoch % len(sorted_characters)
         solution_character = sorted_characters[character_index]
         
+        # Persist session guesses until the daily solution changes
+        today = datetime.utcnow().date().isoformat()
+        # If the session is for a previous day, clear stored guesses and win flag
+        if session.get('solution_date') != today:
+            session['guesses'] = []
+            session.pop('won_date', None)
         session['solution'] = dict(solution_character)
-        
+        session['solution_date'] = today
+        session.modified = True
+
         character_names = [char['NOME'] for char in all_characters]
-        
-        return jsonify({'characterNames': character_names})
+        previous_guesses = session.get('guesses', [])
+        has_won = session.get('won_date') == today
+        today_count = get_today_correct_count()
+
+        return jsonify({
+            'characterNames': character_names,
+            'previousGuesses': previous_guesses,
+            'hasWon': has_won,
+            'todayCorrectCount': today_count
+        })
 
     except Exception as e:
         traceback.print_exc()
@@ -201,6 +217,17 @@ def handle_guess():
     response = {'results': results, 'isCorrect': is_correct}
     if today_count is not None:
         response['todayCorrectCount'] = today_count
+
+    # Persist this guess in the session (avoid duplicates in the same session)
+    try:
+        guesses = session.get('guesses', [])
+        guess_entry = {'guess': guess_name, 'results': results, 'isCorrect': is_correct}
+        if not any(g.get('guess', '').lower() == guess_name.lower() for g in guesses):
+            guesses.append(guess_entry)
+            session['guesses'] = guesses
+            session.modified = True
+    except Exception as e:
+        print(f"Warning: could not persist guess in session: {e}")
 
     return jsonify(response)
 

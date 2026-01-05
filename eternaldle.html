@@ -147,6 +147,26 @@
                 // Do not populate the datalist immediately — populate when user types >=2 chars
                 characterList.innerHTML = '';
 
+                // Restore persisted guesses for this session/day
+                if (data.previousGuesses && data.previousGuesses.length > 0) {
+                    data.previousGuesses.forEach(g => {
+                        try { renderResults(g.results); } catch (e) { console.error('Failed to render a previous guess', e); }
+                    });
+                }
+
+                // If the session already won for today, show win state
+                if (data.hasWon) {
+                    isGameOver = true;
+                    gameContainer.classList.add('hidden');
+                    let countText = '';
+                    if (typeof data.todayCorrectCount !== 'undefined') {
+                        const n = data.todayCorrectCount;
+                        countText = `<p class="mt-2 text-gray-300">${n} ${n === 1 ? 'pessoa acertou' : 'pessoas acertaram'} o personagem de hoje.</p>`;
+                    }
+                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
+                    winMessageContainer.classList.remove('hidden');
+                }
+
             } catch (error) {
                 console.error("ERRO DETALHADO AO INICIAR O JOGO (fetch):", error);
                 showToast('Falha grave ao comunicar com o servidor. Verifique a consola (F12).', true);
