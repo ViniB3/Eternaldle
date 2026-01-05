@@ -139,7 +139,8 @@
 
                 const data = await response.json();
                 characterNames = data.characterNames.map(name => name.trim());
-                characterList.innerHTML = characterNames.map(name => `<option value="${name}"></option>`).join('');
+                // Do not populate the datalist immediately — populate when user types >=2 chars
+                characterList.innerHTML = '';
 
             } catch (error) {
                 console.error("ERRO DETALHADO AO INICIAR O JOGO (fetch):", error);
@@ -240,6 +241,18 @@
         }
 
         document.addEventListener('DOMContentLoaded', startGame);
+        // Update datalist only after user types 2+ characters
+        characterInput.addEventListener('input', () => {
+            const val = characterInput.value.trim();
+            if (val.length >= 2 && characterNames && characterNames.length > 0) {
+                const q = val.toLowerCase();
+                // Use case-insensitive partial match and limit number of options
+                const matches = characterNames.filter(name => name.toLowerCase().includes(q)).slice(0, 50);
+                characterList.innerHTML = matches.map(name => `<option value="${name}"></option>`).join('');
+            } else {
+                characterList.innerHTML = '';
+            }
+        });
         guessButton.addEventListener('click', handleGuess);
         characterInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
