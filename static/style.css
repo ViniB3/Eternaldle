@@ -24,7 +24,7 @@ body {
     }
 }
 
-.correct-bg { background-color: #2a9d8f; }
+.correct-bg { background-color: #19b10b; }
 .partial-bg { background-color: #ece932; }
 .incorrect-bg { background-color: #af1f1f; }
 .higher-bg, .lower-bg { background-color: #f16f05; }
