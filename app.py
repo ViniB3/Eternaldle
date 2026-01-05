@@ -19,6 +19,74 @@ app.config['SESSION_COOKIE_SECURE'] = True
 
 CORS(app, supports_credentials=True)
 
+# --- Funções e Tabela de Estatísticas Diárias ---
+def ensure_daily_stats_table():
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cur = conn.cursor()
+        cur.execute('''
+        CREATE TABLE IF NOT EXISTS daily_stats (
+            date TEXT PRIMARY KEY,
+            solution_name TEXT,
+            correct_count INTEGER DEFAULT 0
+        )
+        ''')
+        conn.commit()
+    except Exception as e:
+        print(f"ERRO ao criar/verificar tabela daily_stats: {e}")
+    finally:
+        try:
+            conn.close()
+        except:
+            pass
+
+
+def increment_today_correct_count(solution_name):
+    today = datetime.utcnow().date().isoformat()
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cur = conn.cursor()
+        cur.execute('''
+            INSERT INTO daily_stats (date, solution_name, correct_count)
+            VALUES (?, ?, 1)
+            ON CONFLICT(date) DO UPDATE SET
+                correct_count = correct_count + 1,
+                solution_name = excluded.solution_name
+        ''', (today, solution_name))
+        conn.commit()
+        cur.execute('SELECT correct_count FROM daily_stats WHERE date = ?', (today,))
+        row = cur.fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except Exception as e:
+        print(f"ERRO increment_today_correct_count: {e}")
+        try:
+            conn.close()
+        except:
+            pass
+        return None
+
+
+def get_today_correct_count():
+    today = datetime.utcnow().date().isoformat()
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cur = conn.cursor()
+        cur.execute('SELECT correct_count FROM daily_stats WHERE date = ?', (today,))
+        row = cur.fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except Exception as e:
+        print(f"ERRO get_today_correct_count: {e}")
+        try:
+            conn.close()
+        except:
+            pass
+        return 0
+
+# Ensure table exists at startup
+ensure_daily_stats_table()
+
 # --- Funções da Base de Dados ---
 def get_all_characters():
     """Busca todos os dados dos personagens da base de dados SQLite."""
@@ -118,7 +186,23 @@ def handle_guess():
     if 'IMAGEM_URL' in guess_character:
         results['imagem_url'] = {'value': guess_character['IMAGEM_URL']}
 
-    return jsonify({'results': results, 'isCorrect': is_correct})
+    # If the guess is correct, increment (once per-session per-day) and return today's correct count
+    today_count = None
+    if is_correct:
+        today_str = datetime.utcnow().date().isoformat()
+        # Prevent double-counting from the same session
+        if session.get('won_date') != today_str:
+            new_count = increment_today_correct_count(solution['NOME'])
+            session['won_date'] = today_str
+            today_count = new_count
+        else:
+            today_count = get_today_correct_count()
+
+    response = {'results': results, 'isCorrect': is_correct}
+    if today_count is not None:
+        response['todayCorrectCount'] = today_count
+
+    return jsonify(response)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

@@ -181,7 +181,12 @@
                 if (data.isCorrect) {
                     isGameOver = true;
                     gameContainer.classList.add('hidden');
-                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>`;
+                    let countText = '';
+                    if (typeof data.todayCorrectCount !== 'undefined') {
+                        const n = data.todayCorrectCount;
+                        countText = `<p class="mt-2 text-gray-300">${n} ${n === 1 ? 'pessoa acertou' : 'pessoas acertaram'} o personagem de hoje.</p>`;
+                    }
+                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
                     winMessageContainer.classList.remove('hidden');
                     showToast('Você venceu!', false);
                 }
