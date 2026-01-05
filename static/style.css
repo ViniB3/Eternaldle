@@ -11,6 +11,19 @@ body {
     color: #e2e2e2;
 }
 
+/* Site title sizing */
+.site-title {
+    font-size: 3rem;
+    line-height: 1;
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.02em;
+}
+@media (min-width: 768px) {
+    .site-title {
+        font-size: 4rem;
+    }
+}
+
 .correct-bg { background-color: #2a9d8f; }
 .partial-bg { background-color: #ece932; }
 .incorrect-bg { background-color: #af1f1f; }
