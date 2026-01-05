@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import traceback
+import redis
 from datetime import datetime  # Importa a biblioteca de data e hora
 from flask import Flask, jsonify, session, request, send_from_directory
 from flask_cors import CORS
@@ -18,6 +19,19 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'None'
 app.config['SESSION_COOKIE_SECURE'] = True
 
 CORS(app, supports_credentials=True)
+
+# --- Optional Redis (Upstash) support for daily counter ---
+redis_client = None
+REDIS_URL = os.environ.get('REDIS_URL') or os.environ.get('UPSTASH_REDIS_URL')
+if REDIS_URL:
+    try:
+        redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+        # Test connection
+        redis_client.ping()
+        print("Connected to Redis for daily counters.")
+    except Exception as e:
+        print(f"WARN: Could not connect to Redis at {REDIS_URL}: {e}")
+        redis_client = None
 
 # --- Funções e Tabela de Estatísticas Diárias ---
 def ensure_daily_stats_table():
@@ -43,6 +57,21 @@ def ensure_daily_stats_table():
 
 def increment_today_correct_count(solution_name):
     today = datetime.utcnow().date().isoformat()
+    # Try Redis first if available
+    if redis_client:
+        try:
+            key = f"eternaldle:daily:{today}:count"
+            new = redis_client.incr(key)
+            # store solution name for reference (non-critical)
+            try:
+                redis_client.set(f"eternaldle:daily:{today}:solution", solution_name)
+            except Exception:
+                pass
+            return int(new)
+        except Exception as e:
+            print(f"ERRO increment_today_correct_count (redis): {e}")
+            # fallback to sqlite
+
     try:
         conn = sqlite3.connect(DATABASE_FILE)
         cur = conn.cursor()
@@ -69,6 +98,16 @@ def increment_today_correct_count(solution_name):
 
 def get_today_correct_count():
     today = datetime.utcnow().date().isoformat()
+    # Try Redis first if available
+    if redis_client:
+        try:
+            key = f"eternaldle:daily:{today}:count"
+            val = redis_client.get(key)
+            return int(val) if val else 0
+        except Exception as e:
+            print(f"ERRO get_today_correct_count (redis): {e}")
+            # fallback to sqlite
+
     try:
         conn = sqlite3.connect(DATABASE_FILE)
         cur = conn.cursor()
@@ -242,6 +281,30 @@ def handle_guess():
         print(f"Warning: could not persist guess in session: {e}")
 
     return jsonify(response)
+
+# Admin endpoint to migrate existing SQLite daily_stats into Redis (protected by MIGRATE_TOKEN)
+@app.route('/admin/migrate_counts', methods=['POST'])
+def migrate_counts():
+    token = request.headers.get('Authorization', '').split()[-1]
+    if token != os.environ.get('MIGRATE_TOKEN'):
+        return ('Forbidden', 403)
+    if not redis_client:
+        return ('Redis not configured', 400)
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cur = conn.cursor()
+        cur.execute('SELECT date, correct_count, solution_name FROM daily_stats')
+        rows = cur.fetchall()
+        conn.close()
+        for date, count, sol in rows:
+            key = f"eternaldle:daily:{date}:count"
+            redis_client.set(key, int(count))
+            if sol:
+                redis_client.set(f"eternaldle:daily:{date}:solution", sol)
+        return ('OK', 200)
+    except Exception as e:
+        print(f"Migration error: {e}")
+        return ('Internal Error', 500)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
