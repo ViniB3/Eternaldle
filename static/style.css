@@ -2,7 +2,6 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    /* Use the supplied Hero image with a dark overlay for legibility */
     background-image: linear-gradient(rgba(10,10,12,0.65), rgba(10,10,12,0.65)), url('https://xboxwire.thesourcemediaassets.com/sites/2/2021/09/HeroImage.jpg');
     background-size: cover;
     background-position: center;
@@ -11,7 +10,6 @@ body {
     color: #e2e2e2;
 }
 
-/* Site title sizing */
 .site-title {
     font-size: 3rem;
     line-height: 1;
@@ -24,7 +22,7 @@ body {
     }
 }
 
-.correct-bg { background-color: #19b10b; }
+.correct-bg { background-color: #0a6302; }
 .partial-bg { background-color: #ece932; }
 .incorrect-bg { background-color: #af1f1f; }
 .higher-bg, .lower-bg { background-color: #f16f05; }
