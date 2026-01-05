@@ -117,6 +117,26 @@
         let characterNames = [];
         let isGameOver = false;
 
+        // LocalStorage helpers to persist guesses per-solution (by date)
+        const todayKey = () => `eternaldle_guesses_${new Date().toISOString().slice(0,10)}`;
+        const wonKey = () => `eternaldle_won_${new Date().toISOString().slice(0,10)}`;
+
+        function loadLocalGuesses() {
+            try {
+                const raw = localStorage.getItem(todayKey());
+                return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+        }
+        function saveLocalGuesses(guesses) {
+            try { localStorage.setItem(todayKey(), JSON.stringify(guesses)); } catch (e) { /* ignore */ }
+        }
+        function setLocalWon(flag) {
+            try { localStorage.setItem(wonKey(), flag ? '1' : ''); } catch (e) {}
+        }
+        function getLocalWon() {
+            try { return !!localStorage.getItem(wonKey()); } catch (e) { return false; }
+        }
+
         function showToast(message, isError = false) {
             const toast = document.getElementById('toast');
             toast.textContent = message;
@@ -148,14 +168,22 @@
                 characterList.innerHTML = '';
 
                 // Restore persisted guesses for this session/day
-                if (data.previousGuesses && data.previousGuesses.length > 0) {
+                const localGuesses = loadLocalGuesses();
+                if (localGuesses && localGuesses.length > 0) {
+                    localGuesses.forEach(g => {
+                        try { renderResults(g.results); } catch (e) { console.error('Failed to render a local previous guess', e); }
+                    });
+                } else if (data.previousGuesses && data.previousGuesses.length > 0) {
+                    // If server has session guesses but local doesn't, adopt server-side guesses into local
                     data.previousGuesses.forEach(g => {
                         try { renderResults(g.results); } catch (e) { console.error('Failed to render a previous guess', e); }
                     });
+                    try { saveLocalGuesses(data.previousGuesses); } catch (e) {}
                 }
 
                 // If the session already won for today, show win state
-                if (data.hasWon) {
+                const localWon = getLocalWon();
+                if (data.hasWon || localWon) {
                     isGameOver = true;
                     gameContainer.classList.add('hidden');
                     let countText = '';
@@ -209,7 +237,21 @@
                     winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
                     winMessageContainer.classList.remove('hidden');
                     showToast('Você venceu!', false);
+                    // Mark local won flag
+                    setLocalWon(true);
                 }
+
+                // Persist this guess locally so it survives F5 (avoid duplicates)
+                try {
+                    const lsKey = todayKey();
+                    const existing = loadLocalGuesses();
+                    const entry = { guess: guess, results: data.results, isCorrect: data.isCorrect };
+                    if (!existing.some(g => g.guess.toLowerCase() === guess.toLowerCase())) {
+                        existing.push(entry);
+                        saveLocalGuesses(existing);
+                    }
+                } catch (e) { console.error('Could not persist guess locally', e); }
+
                 characterInput.value = '';
             
             } catch (error) {
