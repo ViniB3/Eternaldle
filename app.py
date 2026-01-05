@@ -110,6 +110,18 @@ def serve_index():
     """Serve a página principal do jogo."""
     return send_from_directory(project_root, 'eternaldle.html')
 
+
+# Static files are served from the 'static/' folder by Flask. Removed custom /style.css route.
+
+
+@app.route('/favicon.ico')
+def serve_favicon():
+    """Serve um favicon se existir; caso contrário retorna 204 (sem conteúdo)."""
+    favicon_path = os.path.join(project_root, 'favicon.ico')
+    if os.path.exists(favicon_path):
+        return send_from_directory(project_root, 'favicon.ico')
+    return ('', 204)
+
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
     """
