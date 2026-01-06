@@ -138,9 +138,7 @@
                         document.execCommand('copy');
                         document.body.removeChild(ta);
                     }
-                    showToast('Resultado copiado! Abra o Discord e cole no chat. ✅');
-                    // Abrir Discord Web para facilitar colar
-                    try { window.open('https://discord.com/channels/@me', '_blank'); } catch (e) { /* ignore */ }
+                    showToast('Resultado copiado! Cole no Discord ou onde quiser. ✅');
                 } catch (err) {
                     console.error('Falha ao copiar para a área de transferência', err);
                     showToast('Não foi possível copiar automaticamente. Copie manualmente.', true);
