@@ -89,6 +89,83 @@
             }, 3000);
         }
 
+        // --- Compartilhamento para Discord --- 🔧
+        function getShareText() {
+            try {
+                const guesses = loadLocalGuesses();
+                if (!guesses || guesses.length === 0) return `Eternaldle — sem chutes registrados hoje.`;
+
+                const order = ['nome','genero','classe','alcance','cor_cabelo','ano_de_lancamento','quantidade_de_arma'];
+                const statusToEmoji = (status) => {
+                    if (status === 'correct') return '🟩';
+                    if (status === 'partial' || status === 'higher' || status === 'lower') return '🟨';
+                    return '🟥';
+                };
+
+                const rows = guesses.map(g => {
+                    const res = g.results || {};
+                    return order.map(k => {
+                        const s = res[k] && res[k].status ? res[k].status : 'incorrect';
+                        return statusToEmoji(s);
+                    }).join('');
+                }).join('\n');
+
+                const attempts = guesses.length;
+                return `Eternaldle — Acertou em ${attempts} tentativa${attempts === 1 ? '' : 's'}\n\n${rows}\n\n(atributos: nome, gênero, classe, alcance, cabelo, lançamento, armas)\nJogue: ${location.origin}${location.pathname}`;
+            } catch (e) {
+                console.error('Erro ao gerar texto para compartilhamento', e);
+                return 'Eternaldle';
+            }
+        }
+
+        function createShareButton() {
+            const btn = document.createElement('button');
+            btn.id = 'shareDiscordButton';
+            btn.type = 'button';
+            btn.className = 'mt-4 bg-[#5865F2] hover:bg-[#4b54d6] text-white font-bold py-2 px-4 rounded-md transition-colors';
+            btn.textContent = 'Compartilhar no Discord';
+
+            btn.addEventListener('click', async () => {
+                const text = getShareText();
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(text);
+                    } else {
+                        const ta = document.createElement('textarea');
+                        ta.value = text;
+                        document.body.appendChild(ta);
+                        ta.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(ta);
+                    }
+                    showToast('Resultado copiado! Cole no Discord ou onde quiser. ✅');
+                } catch (err) {
+                    console.error('Falha ao copiar para a área de transferência', err);
+                    showToast('Não foi possível copiar automaticamente. Copie manualmente.', true);
+                }
+            });
+
+            return btn;
+        }
+
+        function showWinMessage(countText = '') {
+            winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
+            // remove wrap existente se houver
+            const existing = document.getElementById('shareWrap');
+            if (existing) existing.remove();
+            // adiciona botão de compartilhar
+            const shareWrap = document.createElement('div');
+            shareWrap.id = 'shareWrap';
+            shareWrap.className = 'flex flex-col items-center';
+            shareWrap.appendChild(createShareButton());
+            const small = document.createElement('p');
+            small.className = 'mt-2 text-gray-300 text-sm text-center';
+            small.textContent = 'Clique em "Compartilhar no Discord" para copiar o resumo (🟩=correto, 🟨=parcial/maior/menor, 🟥=incorreto) — um quadrado por atributo: nome, gênero, classe, alcance, cabelo, lançamento, armas.';
+            shareWrap.appendChild(small);
+            winMessageContainer.appendChild(shareWrap);
+            winMessageContainer.classList.remove('hidden');
+        }
+
         async function startGame() {
             try {
                 // A chamada fetch usa um caminho relativo, que é a forma mais robusta.
@@ -133,8 +210,7 @@
                         const n = data.todayCorrectCount;
                         countText = `<p class="mt-2 text-gray-300">${n} ${n === 1 ? 'pessoa acertou' : 'pessoas acertaram'} o personagem de hoje.</p>`;
                     }
-                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
-                    winMessageContainer.classList.remove('hidden');
+                    showWinMessage(countText);
                 }
 
             } catch (error) {
@@ -176,8 +252,7 @@
                         const n = data.todayCorrectCount;
                         countText = `<p class="mt-2 text-gray-300">${n} ${n === 1 ? 'pessoa acertou' : 'pessoas acertaram'} o personagem de hoje.</p>`;
                     }
-                    winMessageContainer.innerHTML = `<h2 class="text-3xl font-bold text-green-400 win-message">Parabéns! Você acertou!</h2>${countText}`;
-                    winMessageContainer.classList.remove('hidden');
+                    showWinMessage(countText);
                     showToast('Você venceu!', false);
                     // Mark local won flag
                     setLocalWon(true);
