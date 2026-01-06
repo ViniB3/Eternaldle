@@ -20,6 +20,7 @@
             <div class="flex flex-col sm:flex-row gap-2">
                 <input type="text" id="characterInput" list="characterList" placeholder="Digite o nome de um personagem..." class="flex-grow p-3 rounded-md text-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <datalist id="characterList"></datalist>
+                <p id="input-warning" class="mt-2 text-sm text-red-400 hidden">Você já chutou esse personagem.</p>
                 <button id="guessButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-md text-lg transition-colors">Adivinhar</button>
             </div>
         </div>
@@ -57,6 +58,7 @@
         const gameContainer = document.getElementById('game-container');
         
         let characterNames = [];
+        let guessedNames = new Set();
         let isGameOver = false;
 
         // LocalStorage helpers to persist guesses per-solution (by date)
@@ -87,6 +89,27 @@
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+
+        // Remove um personagem chutado da lista de sugestões (e atualiza a datalist)
+        function removeCharacterFromList(name) {
+            try {
+                const l = (name || '').trim().toLowerCase();
+                if (!l) return;
+                // marca como chutado para impedir reaparecer mesmo digitando manualmente
+                guessedNames.add(l);
+                characterNames = characterNames.filter(n => n.toLowerCase() !== l);
+                const val = characterInput.value.trim();
+                if (val.length >= 2 && characterNames && characterNames.length > 0) {
+                    const q = val.toLowerCase();
+                    const matches = characterNames.filter(n => n.toLowerCase().includes(q)).slice(0, 50);
+                    characterList.innerHTML = matches.map(n => `<option value="${n}"></option>`).join('');
+                } else {
+                    characterList.innerHTML = '';
+                }
+            } catch (e) {
+                console.error('Erro removendo personagem da lista', e);
+            }
         }
 
         // --- Compartilhamento para Discord --- 🔧
@@ -191,11 +214,13 @@
                 if (localGuesses && localGuesses.length > 0) {
                     localGuesses.forEach(g => {
                         try { renderResults(g.results); } catch (e) { console.error('Failed to render a local previous guess', e); }
+                        if (g && g.guess) removeCharacterFromList(g.guess);
                     });
                 } else if (data.previousGuesses && data.previousGuesses.length > 0) {
                     // If server has session guesses but local doesn't, adopt server-side guesses into local
                     data.previousGuesses.forEach(g => {
                         try { renderResults(g.results); } catch (e) { console.error('Failed to render a previous guess', e); }
+                        if (g && g.guess) removeCharacterFromList(g.guess);
                     });
                     try { saveLocalGuesses(data.previousGuesses); } catch (e) {}
                 }
@@ -222,7 +247,14 @@
         async function handleGuess() {
             const guess = characterInput.value.trim();
             if (isGameOver || !guess) return;
-            
+
+            // Impede palpites duplicados
+            const existingGuesses = loadLocalGuesses();
+            if (existingGuesses && existingGuesses.some(g => g.guess && g.guess.toLowerCase() === guess.toLowerCase())) {
+                showToast('Você já chutou esse personagem', true);
+                return;
+            }
+
             if (!characterNames.some(name => name.toLowerCase() === guess.toLowerCase())) {
                 showToast("Nome de personagem inválido", true);
                 return;
@@ -267,6 +299,8 @@
                         existing.push(entry);
                         saveLocalGuesses(existing);
                     }
+                    // Remove the guessed name so the user cannot chutar de novo
+                    removeCharacterFromList(guess);
                 } catch (e) { console.error('Could not persist guess locally', e); }
 
                 characterInput.value = '';
@@ -330,9 +364,26 @@
         }
 
         document.addEventListener('DOMContentLoaded', startGame);
-        // Update datalist only after user types 2+ characters
+        // Update datalist only after user types 2+ characters and prevent guessing already-chutados
         characterInput.addEventListener('input', () => {
             const val = characterInput.value.trim();
+            const valLower = val.toLowerCase();
+            const warning = document.getElementById('input-warning');
+
+            if (val && guessedNames.has(valLower)) {
+                // bloqueia envio e mostra aviso
+                guessButton.disabled = true;
+                guessButton.classList.add('opacity-50', 'cursor-not-allowed');
+                warning.classList.remove('hidden');
+                warning.textContent = 'Você já chutou esse personagem.';
+                characterList.innerHTML = '';
+                return;
+            } else {
+                guessButton.disabled = false;
+                guessButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                warning.classList.add('hidden');
+            }
+
             if (val.length >= 2 && characterNames && characterNames.length > 0) {
                 const q = val.toLowerCase();
                 // Use case-insensitive partial match and limit number of options
@@ -345,6 +396,11 @@
         guessButton.addEventListener('click', handleGuess);
         characterInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
+                if (guessButton.disabled) {
+                    e.preventDefault();
+                    showToast('Você já chutou esse personagem', true);
+                    return;
+                }
                 handleGuess();
             }
         });
