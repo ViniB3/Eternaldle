@@ -27,6 +27,7 @@ INSERT INTO eternaldle(NOME,GENERO,CLASSE,ALCANCE,COR_CABELO,ANO_DE_LANCAMENTO,Q
 ('Barbara','Mulher','Mago','Corpo-a-corpo','Castanho','2021',1,'https://i.imgur.com/qqzCI8Z.jpeg'),
 ('Bernice','Homem','Carregador','Longo alcance','Loiro','2021',1,'https://i.imgur.com/YSUQsWA.jpeg'),
 ('Bianca','Mulher','Mago','Longo alcance','Azul','2021',1,'https://i.imgur.com/HF2dTni.png'),
+('Blair','Mulher','Lutador','Corpo-a-corpo','Lorio','2025',1,''),
 ('Camilo','Homem','Lutador','Corpo-a-corpo','Loiro','2021',2,'https://i.imgur.com/TuITtH8.png'),
 ('Cathy','Mulher','Assassino','Corpo-a-corpo','Castanho','2021',2,'https://i.imgur.com/F5Y6VKU.jpeg'),
 ('Celine','Mulher','Mago','Longo alcance','Azul','2021',1,'https://i.imgur.com/uhuWQhG.png'),
@@ -47,6 +48,7 @@ INSERT INTO eternaldle(NOME,GENERO,CLASSE,ALCANCE,COR_CABELO,ANO_DE_LANCAMENTO,Q
 ('Garnet','Mulher','Tank,Lutador','Corpo-a-corpo','Cinza','2024',1,'https://i.imgur.com/buxbhwh.png'),
 ('Hart','Mulher','Carregador','Longo alcance','Loiro','2020',1,'https://i.imgur.com/lyRm0Xs.png'),
 ('Haze','Mulher','Mago','Longo alcance','Cinza','2022',1,'https://i.imgur.com/k30E4Az.png'),
+('Henry','Homem','Mago','Longo alcance','Cinza','2025',1,''),
 ('Hisui','Mulher','Lutador','Corpo-a-corpo','Preto','2024',1,'https://i.imgur.com/hTHk3kG.png'),
 ('Hyejin','Mulher','Mago','Longo alcance','Preto','2020',2,'https://i.imgur.com/KAj8Q7C.png'),
 ('Hyunwoo','Homem','Lutador','Corpo-a-corpo','Vermelho','2019',2,'https://i.imgur.com/16TGp06.png'),
@@ -74,6 +76,7 @@ INSERT INTO eternaldle(NOME,GENERO,CLASSE,ALCANCE,COR_CABELO,ANO_DE_LANCAMENTO,Q
 ('Mai','Mulher','Tank,Suporte','Corpo-a-corpo','Vermelho','2022',1,'https://i.imgur.com/lhNC6t2.png'),
 ('Markus','Homem','Tank,Lutador','Corpo-a-corpo','Preto','2022',2,'https://i.imgur.com/N5Tc9uT.png'),
 ('Martina','Mulher','Carregador','Longo alcance','Cinza','2022',1,'https://i.imgur.com/SAJZGbf.png'),
+('Mirka','Mulher','Tank,Lutador','Corpo-a-corpo','Rosa','2025',1,''),
 ('Nadine','Mulher','Mago,Carregador','Longo alcance','Preto','2019',2,'https://i.imgur.com/T4mx5qd.png'),
 ('Nathapon','Homem','Mago','Longo alcance','Castanho','2021',1,'https://i.imgur.com/4SmisY4.png'),
 ('NiaH','Mulher','Mago','Longo alcance','Roxo','2025',1,'https://i.imgur.com/aLPOKku.png'),
@@ -97,7 +100,6 @@ INSERT INTO eternaldle(NOME,GENERO,CLASSE,ALCANCE,COR_CABELO,ANO_DE_LANCAMENTO,Q
 ('Yuki','Homem','Lutador','Corpo-a-corpo','Preto','2020',2,'https://i.imgur.com/B0qxDn4.png'),
 ('Yumin','Homem','Mago','Longo alcance','Preto','2024',1,'https://i.imgur.com/HBXrewM.png'),
 ('Zahir','Homem','Mago','Longo alcance','Castanho','2019',2,'https://i.imgur.com/j3Kh7O3.png')
-
 
 
 
