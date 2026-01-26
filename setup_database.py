@@ -25,7 +25,7 @@ characters = [
     ('Celine','Mulher','Mago','Longo alcance','Azul','2021',1,'https://i.imgur.com/uhuWQhG.png'),
     ('Charlotte','Mulher','Suporte','Longo alcance','Rosa','2024',1,'https://i.imgur.com/7TA3K29.png'),
     ('Chiara','Mulher','Lutador','Corpo-a-corpo','Branco','2020',1,'https://i.imgur.com/4TQnuYs.png'),
-    ('Chloe','Mulher','Carregador','Longo alcance','Loiro','2021',1,'https://i.imgur.com/b26xnFD.png'),
+    ('Chloe','Mulher','Carregador','Longo alcance','Cinza','2021',1,'https://i.imgur.com/b26xnFD.png'),
     ('Daniel','Homem','Assassino','Corpo-a-corpo','Roxo','2021',1,'https://i.imgur.com/z82SVVP.png'),
     ('Darko','Homem','Lutador','Corpo-a-corpo','Azul','2024',1,'https://i.imgur.com/diZYu2C.png'),
     ('Debi','Mulher','Lutador','Corpo-a-corpo,Longo alcance','Preto','2023',1,'https://i.imgur.com/h2CVZTv.png'),
@@ -129,6 +129,7 @@ def create_and_populate_db():
 
 if __name__ == '__main__':
     create_and_populate_db()
+
 
 
 
