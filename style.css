@@ -12,7 +12,7 @@ body {
 }
 
 .correct-bg { background-color: #2a9d8f; }
-.partial-bg { background-color: ##E0BC00; }
+.partial-bg { background-color: #FFD32C; }
 .incorrect-bg { background-color: #af1f1f; }
 .higher-bg, .lower-bg { background-color: #f16f05; }
 
@@ -64,3 +64,4 @@ body {
     to { opacity: 1; transform: translateY(0); }
 
 }
+
