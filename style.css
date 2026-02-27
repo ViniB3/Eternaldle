@@ -12,7 +12,7 @@ body {
 }
 
 .correct-bg { background-color: #2a9d8f; }
-.partial-bg { background-color: #ece932; }
+.partial-bg { background-color: ##E0BC00; }
 .incorrect-bg { background-color: #af1f1f; }
 .higher-bg, .lower-bg { background-color: #f16f05; }
 
@@ -62,4 +62,5 @@ body {
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
+
 }
