@@ -6,17 +6,16 @@ from datetime import datetime  # Importa a biblioteca de data e hora
 from flask import Flask, jsonify, session, request, send_from_directory
 from flask_cors import CORS
 
-# --- Configuração do Flask e Caminhos ---
 app = Flask(__name__)
 
-# SOLUÇÃO GRATUITA E FINAL: Usar o diretório do projeto para tudo.
+# Configuração de caminhos
 project_root = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
-# Chave secreta e configuração de cookies para a sessão
+# Configuração de Sessão e Segurança
 app.config['SECRET_KEY'] = 'a_chave_secreta_super_dificil_de_adivinhar'
-app.config['SESSION_COOKIE_SAMESITE'] = 'None'
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = False  # Definir como True se usar HTTPS (produção)
 
 CORS(app, supports_credentials=True)
 
@@ -132,22 +131,17 @@ def get_all_characters():
     if not os.path.exists(DATABASE_FILE):
         return None
     try:
-        conn = sqlite3.connect(DATABASE_FILE)
-        conn.row_factory = sqlite3.Row
+        conn = get_db_connection()
         cur = conn.cursor()
-        cur.execute("SELECT * FROM eternaldle")
-        characters_raw = cur.fetchall()
+        cur.execute("SELECT winners_count FROM daily_stats WHERE data = ?", (today,))
+        row = cur.fetchone()
         conn.close()
-        return [dict(row) for row in characters_raw]
-    except sqlite3.OperationalError as e:
-        print(f"ERRO DE SQL: {e}.")
-        return None
+        return row['winners_count'] if row else 0
+    except Exception as e:
+        print(f"Erro ao obter contagem: {e}")
+        return 0
 
-# --- Rotas da Aplicação (API e Frontend) ---
-@app.route('/')
-def serve_index():
-    """Serve a página principal do jogo."""
-    return send_from_directory(project_root, 'eternaldle.html')
+# --- Rotas da API ---
 
 
 # Static files are served from the 'static/' folder by Flask. Removed custom /style.css route.
@@ -163,21 +157,22 @@ def serve_favicon():
 
 @app.route('/api/start_game', methods=['POST'])
 def start_game():
-    """
-    Inicia um novo jogo, escolhendo um personagem do dia de forma determinística.
-    O personagem é o mesmo para todos durante 24h.
-    """
+    """Inicializa o jogo e seleciona o personagem do dia baseado na data."""
     try:
-        all_characters = get_all_characters()
+        conn = get_db_connection()
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM eternaldle")
+        all_characters = [dict(row) for row in cur.fetchall()]
+        conn.close()
 
         if not all_characters:
-            return jsonify({'error': 'A base de dados parece estar vazia.'}), 500
+            return jsonify({'error': 'A base de dados está vazia.'}), 500
 
-        # Garante que a ordem dos personagens é sempre a mesma
+        # Ordenar alfabeticamente para garantir que o índice seja consistente em todos os clientes
         sorted_characters = sorted(all_characters, key=lambda x: x['NOME'])
         
-        # Lógica para escolher o personagem do dia
-        epoch = datetime(2024, 1, 1)  # Uma data de início fixa
+        # Lógica de seleção diária: muda o personagem a cada 24 horas
+        epoch = datetime(2024, 1, 1)
         today = datetime.utcnow()
         days_since_epoch = (today - epoch).days
         
@@ -208,50 +203,85 @@ def start_game():
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'error': 'Ocorreu um erro inesperado no servidor.'}), 500
+        return jsonify({'error': 'Erro no servidor ao iniciar jogo.'}), 500
+
+@app.route('/api/record_win', methods=['POST'])
+def record_win():
+    """Regista que um utilizador acertou no personagem de hoje."""
+    if 'solution' not in session:
+        return jsonify({'error': 'Sessão inválida.'}), 400
+    
+    # Evita incrementos múltiplos do mesmo utilizador na mesma sessão
+    if session.get('has_won_today'):
+        return jsonify({'winnersToday': get_winners_count()})
+
+    today = get_today_str()
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        # Incrementa o contador ou cria o registo para o novo dia
+        cur.execute("""
+            INSERT INTO daily_stats (data, winners_count) 
+            VALUES (?, 1) 
+            ON CONFLICT(data) DO UPDATE SET winners_count = winners_count + 1
+        """, (today,))
+        
+        conn.commit()
+        conn.close()
+        
+        session['has_won_today'] = True
+        return jsonify({'winnersToday': get_winners_count()})
+    except Exception as e:
+        print(f"Erro ao gravar vitória: {e}")
+        return jsonify({'error': 'Erro ao atualizar estatísticas.'}), 500
 
 @app.route('/api/guess', methods=['POST'])
 def handle_guess():
-    """Lida com o palpite de um utilizador e retorna a comparação detalhada."""
+    """Valida o palpite do utilizador e compara com a solução da sessão."""
     if 'solution' not in session:
-        return jsonify({'error': 'O jogo não foi iniciado. Por favor, atualize a página.'}), 400
+        return jsonify({'error': 'Jogo não iniciado.'}), 400
 
     data = request.get_json()
     guess_name = data.get('guess', '').strip()
     solution = session['solution']
     
-    all_characters = get_all_characters()
-    if all_characters is None:
-        return jsonify({'error': 'Falha ao recarregar os dados para o palpite.'}), 500
-        
-    guess_character = next((char for char in all_characters if char['NOME'].lower() == guess_name.lower()), None)
-    if not guess_character:
+    conn = get_db_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT * FROM eternaldle WHERE NOME = ?", (guess_name,))
+    row = cur.fetchone()
+    conn.close()
+    
+    if not row:
         return jsonify({'error': 'Personagem não encontrado.'}), 404
 
-    # --- Lógica de Comparação ---
+    guess_character = dict(row)
     results = {}
     is_correct = (guess_character['NOME'].lower() == solution['NOME'].lower())
+    
+    # Lógica de comparação de atributos
     for key in solution.keys():
+        if key in ['IMAGEM_URL']: continue
+        
         guess_value = guess_character.get(key)
         solution_value = solution.get(key)
         status = 'incorrect'
-        if guess_value == solution_value:
+        
+        if str(guess_value).lower() == str(solution_value).lower():
             status = 'correct'
         elif key in ['ANO_DE_LANCAMENTO', 'QUANTIDADE_DE_ARMA']:
             try:
-                if int(guess_value) < int(solution_value):
-                    status = 'lower'
-                elif int(guess_value) > int(solution_value):
-                    status = 'higher'
-            except (ValueError, TypeError): status = 'incorrect'
-        elif key in ['CLASSE', 'ALCANCE']: # Corrigido para ALCANCE
-            guess_parts = {part.strip() for part in str(guess_value).split(',')}
-            solution_parts = {part.strip() for part in str(solution_value).split(',')}
-            if guess_parts.intersection(solution_parts):
-                status = 'partial'
+                if int(guess_value) < int(solution_value): status = 'higher'
+                elif int(guess_value) > int(solution_value): status = 'lower'
+            except: status = 'incorrect'
+        elif key in ['CLASSE', 'ALCANCE']:
+            guess_parts = {part.strip().lower() for part in str(guess_value).split(',')}
+            solution_parts = {part.strip().lower() for part in str(solution_value).split(',')}
+            if guess_parts.intersection(solution_parts): status = 'partial'
+            
         results[key.lower()] = {'value': guess_value, 'status': status}
-    if 'IMAGEM_URL' in guess_character:
-        results['imagem_url'] = {'value': guess_character['IMAGEM_URL']}
+    
+    results['imagem_url'] = {'value': guess_character['IMAGEM_URL']}
 
     # If the guess is correct, increment (once per-session per-day) and return today's correct count
     today_count = None
@@ -307,5 +337,5 @@ def migrate_counts():
         return ('Internal Error', 500)
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
-
+    # Garante que a base de dados existe antes de arrancar (opcional se usar setup_database.py)
+    app.run(debug=True, host='0.0.0.0', port=5000)

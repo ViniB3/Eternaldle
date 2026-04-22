@@ -1,12 +1,11 @@
 import sqlite3
 import os
 
-# SOLUÇÃO FINAL: Usar o diretório do projeto para tudo.
-# Isto garante que a app encontra a base de dados criada pelo script de build.
+# Define o caminho para o ficheiro da base de dados na mesma pasta do script
 project_root = os.path.dirname(os.path.abspath(__file__))
 DATABASE_FILE = os.path.join(project_root, 'eternaldle.db')
 
-# Lista completa de personagens
+# Lista completa de personagens para popular o jogo
 characters = [
     ('Abigail','Mulher','Lutador','Corpo-a-corpo','Cinza','2023',1,'https://i.imgur.com/guAblq7.jpeg'),
 ('Adela','Mulher','Mago,Suporte','Longo alcance','Preto','2021',2,'https://i.imgur.com/wZt2Icr.jpeg'),
@@ -84,10 +83,10 @@ characters = [
 ('Sua','Mulher','Lutador,Mago','Corpo-a-corpo','Castanho','2021',2,'https://i.imgur.com/gwX9EMV.png'),
 ('Tazia','Mulher','Mago','Longo alcance','Vermelho','2022',1,'https://i.imgur.com/hGj9Kxu.png'),
 ('Theodore','Homem','Carregador,Suporte','Longo alcance','Preto','2023',1,'https://i.imgur.com/tTVYjeR.png'),
-('Tia','Mulher','Mago','Corpo-a-corpo','Loiro','2022',1,'https://i.imgur.com/MYmciUp.png'),
+('Tia','Mulher','Mago','Longo alcance','Loiro','2022',1,'https://i.imgur.com/MYmciUp.png'),
 ('Tsubame','Mulher','Carregador','Longo alcance','Preto','2023',1,'https://i.imgur.com/N6ZXJZ0.png'),
 ('Vanya','Mulher','Lutador','Longo alcance','Azul','2023',1,'https://i.imgur.com/S36csEl.png'),
-('William','Homem','Carregador','Longo alcance','Castanho','2021',1,'https://i.imgur.com/wNb4soe.png'),
+('William','Homem','Carregador','Longo alcance','Castanho','2021',2,'https://i.imgur.com/wNb4soe.png'),
 ('Xiukai','Homem','Tank','Corpo-a-corpo','Preto','2020',2,'https://i.imgur.com/eCwd4Pj.png'),
 ('Xuelin','Mulher','Lutador','Corpo-a-corpo','Verde','2025',1,'https://i.imgur.com/hsk4wJT.png'),
 ('Yuki','Homem','Lutador','Corpo-a-corpo','Preto','2020',2,'https://i.imgur.com/B0qxDn4.png'),
@@ -96,42 +95,52 @@ characters = [
 ]
 
 def create_and_populate_db():
-    # Remove a base de dados antiga, se existir, para garantir que começamos do zero
+    """Cria o ficheiro da base de dados, define as tabelas e insere os personagens."""
+    # Remove a base de dados antiga para garantir uma instalação limpa se existir
     if os.path.exists(DATABASE_FILE):
+        print(f"A apagar base de dados antiga: {DATABASE_FILE}")
         os.remove(DATABASE_FILE)
 
-    # Conecta-se à base de dados (irá criar o ficheiro se não existir)
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
+    try:
+        conn = sqlite3.connect(DATABASE_FILE)
+        cursor = conn.cursor()
 
-    # Cria a tabela
-    cursor.execute('''
-    CREATE TABLE eternaldle (
-        NOME TEXT PRIMARY KEY,
-        GENERO TEXT,
-        CLASSE TEXT,
-        ALCANCE TEXT,
-        COR_CABELO TEXT,
-        ANO_DE_LANCAMENTO TEXT,
-        QUANTIDADE_DE_ARMA INTEGER,
-        IMAGEM_URL TEXT
-    )
-    ''')
+        # Tabela principal de personagens
+        cursor.execute('''
+        CREATE TABLE eternaldle (
+            NOME TEXT PRIMARY KEY,
+            GENERO TEXT,
+            CLASSE TEXT,
+            ALCANCE TEXT,
+            COR_CABELO TEXT,
+            ANO_DE_LANCAMENTO TEXT,
+            QUANTIDADE_DE_ARMA INTEGER,
+            IMAGEM_URL TEXT
+        )
+        ''')
 
-    # Insere os dados dos personagens
-    cursor.executemany('''
-    INSERT INTO eternaldle (NOME, GENERO, CLASSE, ALCANCE, COR_CABELO, ANO_DE_LANCAMENTO, QUANTIDADE_DE_ARMA, IMAGEM_URL)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', characters)
+        # Tabela de estatísticas para contar vencedores diários
+        cursor.execute('''
+        CREATE TABLE daily_stats (
+            data TEXT PRIMARY KEY,
+            winners_count INTEGER DEFAULT 0
+        )
+        ''')
 
-    # Confirma as alterações e fecha a conexão
-    conn.commit()
-    conn.close()
+        # Insere a lista completa de personagens
+        cursor.executemany('''
+        INSERT INTO eternaldle (NOME, GENERO, CLASSE, ALCANCE, COR_CABELO, ANO_DE_LANCAMENTO, QUANTIDADE_DE_ARMA, IMAGEM_URL)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', characters)
 
-    print(f"Base de dados '{DATABASE_FILE}' criada e preenchida com sucesso!")
+        conn.commit()
+        conn.close()
 
-if __name__ == '__main__':
-    create_and_populate_db()
+        print(f"Base de dados '{DATABASE_FILE}' criada com sucesso!")
+        print(f"Total de personagens inseridos: {len(characters)}")
+
+    except sqlite3.Error as e:
+        print(f"Erro ao criar a base de dados: {e}")
 
 
 
